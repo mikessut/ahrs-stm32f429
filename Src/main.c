@@ -148,30 +148,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    uint8_t txData[2] = {0x8F, 0x00}; /* who am i */
+    //uint8_t txData[2] = {0x8F, 0x00}; /* who am i */
+    uint8_t txData[2] = {0x00, 0x00}; /* who am i */
     uint8_t rxData[2];
 
-    printf("Hello World\r\n");
-    HAL_Delay(1000);
+    //printf("Hello World\r\n");
+    //HAL_Delay(1000);
 
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
 
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+//    HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+//
+//    while( hspi1.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
+//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+//
+//    printf("LSM6DS33: %02X %02X\r\n", rxData[0], rxData[1]);
+//
+//    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+//    HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+//
+//    while( hspi2.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
+//    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+//
+//    printf("LIS3MDL: %02X %02X\r\n", rxData[0], rxData[1]);
 
-    while( hspi1.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
 
-    printf("LSM6DS33: %02X %02X\r\n", rxData[0], rxData[1]);
+    while( hspi4.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
 
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+    if (rxData[0] == 0xFF || rxData[1] == 0xFF)
+      continue;
 
-    while( hspi2.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
-
-    printf("LIS3MDL: %02X %02X\r\n", rxData[0], rxData[1]);
+    printf("%c%c", rxData[0], rxData[1]);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -483,7 +495,7 @@ static void MX_SPI4_Init(void)
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi4.Init.NSS = SPI_NSS_SOFT;
-  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
