@@ -27,6 +27,7 @@
 #include <math.h>
 #include "can_fix.h"
 #include "lsm6ds33.h"
+#include "lis3mdl.h"
 
 /* USER CODE END Includes */
 
@@ -218,6 +219,9 @@ int main(void)
   if (lsm6ds33_initialize(&hspi1, GPIOA, GPIO_PIN_1))
     printf("LSM6DS33 Initilization Error\r\n");
 
+  if (lis3mdl_initialize(&hspi2, GPIOC, GPIO_PIN_0))
+      printf("LIS3MDL Initilization Error\r\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -232,19 +236,22 @@ int main(void)
     int16_t accel_y;
     int16_t accel_z;
 
+    int16_t mag_x;
+    int16_t mag_y;
+    int16_t mag_z;
+
     int16_t roll = 0;
     int16_t pitch = 0;
+    double heading_temp = 0;
+    int16_t heading = 0;
 
     airspeed += airspeed_increment;
     altitude += altitude_increment;
 
     if (airspeed > max_airspeed || airspeed < 1 || altitude < 1) {
-	airspeed_increment *= -1;
-	altitude_increment *= -1;
+      airspeed_increment *= -1;
+      altitude_increment *= -1;
     }
-
-    //printf("Hello World\r\n");
-    //HAL_Delay(1000);
 
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
@@ -252,8 +259,6 @@ int main(void)
     lsm6ds33_read_gyro_x(&gyro_x);
     lsm6ds33_read_gyro_y(&gyro_y);
     lsm6ds33_read_gyro_z(&gyro_z);
-
-    //printf("%d  %d\r\n", gyro_x, gyro_y);
 
     lsm6ds33_read_accel_x(&accel_x);
     lsm6ds33_read_accel_y(&accel_y);
@@ -263,26 +268,30 @@ int main(void)
     double y_buff = accel_y;
     double z_buff = accel_z;
 
-    //printf("%d  %d\r\n", accel_x, accel_y);
     roll = atan2((double)accel_y, (double)accel_z) * 573;
     pitch = atan2((- x_buff) , sqrt(y_buff * y_buff + z_buff * z_buff)) * 573;
-    printf("%d\r\n", roll);
+    //printf("%d\r\n", roll);
 
-//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
-//    HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
-//
-//    while( hspi1.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
-//
-//    printf("LSM6DS33: %02X\r\n", rxData[1]);
-//
-//    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
-//    HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
-//
-//    while( hspi2.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-//    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
-//
-//    printf("LIS3MDL: %02X\r\n", rxData[1]);
+    lis3mdl_read_mag_x(&mag_x);
+    lis3mdl_read_mag_y(&mag_y);
+    lis3mdl_read_mag_z(&mag_z);
+
+    heading_temp = atan2(mag_x, -mag_y);
+
+    //heading_temp += M_PI; // the sensor is 180 deg off
+
+    heading_temp -= 0.22;
+
+    if(heading_temp < 0)
+      heading_temp += 2*M_PI;
+
+    if(heading_temp > 2*M_PI)
+      heading_temp -= 2*M_PI;
+
+    heading_temp *= (180/M_PI);
+    heading = heading_temp * 10;
+
+    printf("%d\r\n", heading);
 
 //    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
 //    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
@@ -312,6 +321,9 @@ int main(void)
 
     payload.data = altitude;
     send_can_fix_msg(0x184, &payload);
+
+    payload.data = heading;
+    send_can_fix_msg(0x185, &payload);
 
     HAL_Delay(150);
     /* USER CODE END WHILE */

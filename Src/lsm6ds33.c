@@ -48,7 +48,7 @@ static int _write_reg(uint8_t address, uint8_t value)
   return 0;
 }
 
-int read_reg_u16(uint8_t address, uint16_t* val)
+static int read_reg_u16(uint8_t address, uint16_t* val)
 {
   uint8_t msb = 0;
   uint8_t lsb = 0;
@@ -61,7 +61,7 @@ int read_reg_u16(uint8_t address, uint16_t* val)
   return 0;
 }
 
-int read_reg_16(uint8_t address, int16_t* val)
+static int read_reg_16(uint8_t address, int16_t* val)
 {
   read_reg_u16(address, (uint16_t*)val);
   return 0;
