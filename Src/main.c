@@ -24,6 +24,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <math.h>
+#include "can_fix.h"
+#include "lsm6ds33.h"
 
 /* USER CODE END Includes */
 
@@ -96,6 +99,66 @@ int __io_putchar(int ch)
   return ch;
 }
 
+int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
+{
+  CAN_TxHeaderTypeDef tx_header;
+  uint8_t tx_data[8] = {0};
+  uint32_t tx_mailbox;
+  int i = 3;
+
+  tx_header.StdId = msg_id;
+  tx_header.RTR = CAN_RTR_DATA;
+  tx_header.IDE = CAN_ID_STD;
+  tx_header.DLC = 7;
+  tx_header.TransmitGlobalTime = DISABLE;
+
+  tx_data[0] = msg->node;
+  tx_data[1] = msg->index;
+  tx_data[2] = msg->status_code;
+
+  for (i = 0; i < 4; i++) {
+      tx_data[i + 3] = (msg->data >> (8 * i)) & 0xFF;
+  }
+
+  if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
+    printf("Error queing CAN TX msg\r\n");
+    return -1;
+  }
+
+  /* the STM32F427 has 3 tx mailboxes available
+   * spin wait if none are free */
+  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+    /* should add timeout here */
+  }
+
+  return 0;
+}
+
+void initialize_CAN()
+{
+  CAN_FilterTypeDef sFilterConfig;
+  sFilterConfig.FilterBank = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
+
+  if(HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
+    /* Filter configuration Error */
+    printf("Error configuring CAN filter\r\n");
+  }
+
+  if (HAL_CAN_Start(&hcan1) != HAL_OK) {
+    printf("Error starting CAN\r\n");
+  }
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -105,7 +168,12 @@ int __io_putchar(int ch)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  uint16_t airspeed = 0;
+  int32_t altitude = 0;
+  uint32_t max_altitude = 10000;
+  uint16_t max_airspeed = 1400;
+  int16_t airspeed_increment = max_airspeed / 250;
+  int16_t altitude_increment = max_altitude / 250;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -142,15 +210,38 @@ int main(void)
   MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  initialize_CAN();
+
+  /* sensors fail if we try to initialize right away */
+  HAL_Delay(500);
+
+  if (lsm6ds33_initialize(&hspi1, GPIOA, GPIO_PIN_1))
+    printf("LSM6DS33 Initilization Error\r\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //uint8_t txData[2] = {0x8F, 0x00}; /* who am i */
-    uint8_t txData[2] = {0x00, 0x00}; /* who am i */
-    uint8_t rxData[2];
+    int16_t gyro_x;
+    int16_t gyro_y;
+    int16_t gyro_z;
+
+    int16_t accel_x;
+    int16_t accel_y;
+    int16_t accel_z;
+
+    int16_t roll = 0;
+    int16_t pitch = 0;
+
+    airspeed += airspeed_increment;
+    altitude += altitude_increment;
+
+    if (airspeed > max_airspeed || airspeed < 1 || altitude < 1) {
+	airspeed_increment *= -1;
+	altitude_increment *= -1;
+    }
 
     //printf("Hello World\r\n");
     //HAL_Delay(1000);
@@ -158,13 +249,32 @@ int main(void)
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
 
+    lsm6ds33_read_gyro_x(&gyro_x);
+    lsm6ds33_read_gyro_y(&gyro_y);
+    lsm6ds33_read_gyro_z(&gyro_z);
+
+    //printf("%d  %d\r\n", gyro_x, gyro_y);
+
+    lsm6ds33_read_accel_x(&accel_x);
+    lsm6ds33_read_accel_y(&accel_y);
+    lsm6ds33_read_accel_z(&accel_z);
+
+    double x_buff = accel_x;
+    double y_buff = accel_y;
+    double z_buff = accel_z;
+
+    //printf("%d  %d\r\n", accel_x, accel_y);
+    roll = atan2((double)accel_y, (double)accel_z) * 573;
+    pitch = atan2((- x_buff) , sqrt(y_buff * y_buff + z_buff * z_buff)) * 573;
+    printf("%d\r\n", roll);
+
 //    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
 //    HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
 //
 //    while( hspi1.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
 //    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
 //
-//    printf("LSM6DS33: %02X %02X\r\n", rxData[0], rxData[1]);
+//    printf("LSM6DS33: %02X\r\n", rxData[1]);
 //
 //    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
 //    HAL_SPI_TransmitReceive(&hspi2, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
@@ -172,18 +282,38 @@ int main(void)
 //    while( hspi2.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
 //    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
 //
-//    printf("LIS3MDL: %02X %02X\r\n", rxData[0], rxData[1]);
+//    printf("LIS3MDL: %02X\r\n", rxData[1]);
 
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
+//
+//    while( hspi4.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
+//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+//
+//    if (rxData[0] == 0xFF || rxData[1] == 0xFF)
+//      continue;
+//
+//    printf("%c%c", rxData[0], rxData[1]);
 
-    while( hspi4.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+  /* START CAN BUS REPORTS */
+    normal_data payload;
+    payload.node = 0x12;
+    payload.index = 0;
+    payload.status_code = 0;
 
-    if (rxData[0] == 0xFF || rxData[1] == 0xFF)
-      continue;
+    payload.data = airspeed;
+    send_can_fix_msg(0x183, &payload);
 
-    printf("%c%c", rxData[0], rxData[1]);
+    payload.data = roll * 10;
+    send_can_fix_msg(0x181, &payload);
+
+    payload.data = -pitch * 10;
+    send_can_fix_msg(0x180, &payload);
+
+    payload.data = altitude;
+    send_can_fix_msg(0x184, &payload);
+
+    HAL_Delay(150);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -245,10 +375,10 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 5;
+  hcan1.Init.Prescaler = 2;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
