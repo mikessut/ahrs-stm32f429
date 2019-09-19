@@ -276,7 +276,7 @@ int main(void)
 
     roll = atan2((double)accel_y, (double)accel_z) * 573;
     pitch = atan2((- x_buff) , sqrt(y_buff * y_buff + z_buff * z_buff)) * 573;
-    printf("%d\r\n", roll);
+    //printf("%d\r\n", roll);
 
     lis3mdl_read_mag_x(&mag_x);
     lis3mdl_read_mag_y(&mag_y);
@@ -284,7 +284,7 @@ int main(void)
 
     heading_temp = atan2(mag_x, -mag_y);
 
-    //heading_temp += M_PI; // the sensor is 180 deg off
+    heading_temp += M_PI; // the sensor is 180 deg off
 
     heading_temp -= 0.22;
 
@@ -297,7 +297,7 @@ int main(void)
     heading_temp *= (180/M_PI);
     heading = heading_temp * 10;
 
-    //printf("%d\r\n", heading);
+    printf("heading: %d\r\n", heading/10);
 
 //    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
 //    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
@@ -331,19 +331,21 @@ int main(void)
     payload.data = heading;
     send_can_fix_msg(0x185, &payload);
 
+    /* Static Pressure Port Sensor */
     uint8_t data[4] = {0, 0, 0, 0};
     uint8_t error = HAL_OK;
     error =  HAL_I2C_Master_Receive(&hi2c1, 0x70, data, 4, 100);
     if (HAL_OK != error) {
 	printf("error: %u\n\r", error);
     }
-    printf("%x %x %x %x\n\r", data[0], data[1], data[2], data[3]);
+
     uint8_t status = (data[0] & 0xC0) >> 6;
     uint16_t bridge_data = ((data[0] & 0x3F) << 8) + data[1];
     uint16_t temperature_data = (data[2] << 3) + ((data[3] & 0xE0) >> 5);
     uint16_t temperature = (temperature_data * 200)/2047 - 50;
+    uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
 
-    printf("status: %u  bridge data = %u  temperature = %u\r\n", status, bridge_data, temperature);
+    printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
