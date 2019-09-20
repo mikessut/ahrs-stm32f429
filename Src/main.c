@@ -332,20 +332,30 @@ int main(void)
     send_can_fix_msg(0x185, &payload);
 
     /* Static Pressure Port Sensor */
-    uint8_t data[4] = {0, 0, 0, 0};
+    uint8_t abs_press_data[4] = {0, 0, 0, 0};
     uint8_t error = HAL_OK;
-    error =  HAL_I2C_Master_Receive(&hi2c1, 0x70, data, 4, 100);
+    error =  HAL_I2C_Master_Receive(&hi2c1, 0x70, abs_press_data, 4, 100);
     if (HAL_OK != error) {
 	printf("error: %u\n\r", error);
     }
 
-    uint8_t status = (data[0] & 0xC0) >> 6;
-    uint16_t bridge_data = ((data[0] & 0x3F) << 8) + data[1];
-    uint16_t temperature_data = (data[2] << 3) + ((data[3] & 0xE0) >> 5);
+    uint8_t status = (abs_press_data[0] & 0xC0) >> 6;
+    uint16_t bridge_data = ((abs_press_data[0] & 0x3F) << 8) + abs_press_data[1];
+    uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
     uint16_t temperature = (temperature_data * 200)/2047 - 50;
     uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
 
     printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
+
+    uint8_t diff_press_data[4] = {0, 0, 0, 0};
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+    HAL_SPI_Receive(&hspi3, diff_press_data, sizeof(diff_press_data), 100);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+
+    temperature_data = (diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5);
+    temperature = (temperature_data * 200)/2047 - 50;
+
+    printf("temperature: %u\n\r", temperature);
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
@@ -631,7 +641,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
