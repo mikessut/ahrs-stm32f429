@@ -65,6 +65,8 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c
 
 CPP_SOURCES = \
 Src/main.cpp \
+Src/kalman.cpp \
+Src/dcm.cpp
 
 # ASM sources
 ASM_SOURCES =  \
@@ -136,7 +138,7 @@ C_INCLUDES =  \
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -I c:\work\eigen 
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
