@@ -114,6 +114,8 @@ int lsm6ds33_initialize(SPI_HandleTypeDef* spi_port, GPIO_TypeDef* cs_gpio_bank,
   gpio_bank = cs_gpio_bank;
   gpio_pin = cs_gpio_pin;
 
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+
   _read_reg_u8(0x0F, &who_am_i);
 
   if (who_am_i != 0x69)
