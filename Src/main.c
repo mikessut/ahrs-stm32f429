@@ -121,8 +121,11 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
       tx_data[i + 3] = (msg->data >> (8 * i)) & 0xFF;
   }
 
-  if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-    return -1;
+  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+  //  return -1;
+  //}
+  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+    /* should add timeout here */
   }
 
   if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
@@ -141,6 +144,7 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
 
 void initialize_CAN()
 {
+  // This seems to be -s4 speed 125 k
   CAN_FilterTypeDef sFilterConfig;
   sFilterConfig.FilterBank = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
@@ -170,6 +174,14 @@ void initialize_CAN()
   * @brief  The application entry point.
   * @retval int
   */
+
+void sweeper(int32_t *p, int32_t min, int32_t max, int32_t incr) {
+  *p += incr;
+  if (*p > max)
+    *p = min;
+}
+
+
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -179,6 +191,9 @@ int main(void)
   uint16_t max_airspeed = 1400;
   int16_t airspeed_increment = max_airspeed / 250;
   int16_t altitude_increment = max_altitude / 250;
+  int32_t heading = 0;
+  int32_t pitch = 0;
+  int32_t roll = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -246,22 +261,6 @@ int main(void)
     int16_t mag_y;
     int16_t mag_z;
 
-    int16_t roll = 0;
-    int16_t pitch = 0;
-    double heading_temp = 0;
-    int16_t heading = 0;
-
-    airspeed += airspeed_increment;
-    altitude += altitude_increment;
-
-    if (airspeed > max_airspeed || airspeed < 1 || altitude < 1) {
-      airspeed_increment *= -1;
-      altitude_increment *= -1;
-    }
-
-    // SPI1 = LSM6DS33
-    // SPI2 = LIS3MDL
-
     lsm6ds33_read_gyro_x(&gyro_x);
     lsm6ds33_read_gyro_y(&gyro_y);
     lsm6ds33_read_gyro_z(&gyro_z);
@@ -274,41 +273,9 @@ int main(void)
     double y_buff = accel_y;
     double z_buff = accel_z;
 
-    roll = atan2((double)accel_y, (double)accel_z) * 573;
-    pitch = atan2((- x_buff) , sqrt(y_buff * y_buff + z_buff * z_buff)) * 573;
-    printf("%d\r\n", roll);
-
     lis3mdl_read_mag_x(&mag_x);
     lis3mdl_read_mag_y(&mag_y);
     lis3mdl_read_mag_z(&mag_z);
-
-    heading_temp = atan2(mag_x, -mag_y);
-
-    heading_temp += M_PI; // the sensor is 180 deg off
-
-    heading_temp -= 0.22;
-
-    if(heading_temp < 0)
-      heading_temp += 2*M_PI;
-
-    if(heading_temp > 2*M_PI)
-      heading_temp -= 2*M_PI;
-
-    heading_temp *= (180/M_PI);
-    heading = heading_temp * 10;
-
-    printf("heading: %d\r\n", heading/10);
-
-//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
-//
-//    while( hspi4.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-//
-//    if (rxData[0] == 0xFF || rxData[1] == 0xFF)
-//      continue;
-//
-//    printf("%c%c", rxData[0], rxData[1]);
 
   /* START CAN BUS REPORTS */
     normal_data payload;
@@ -316,18 +283,23 @@ int main(void)
     payload.index = 0;
     payload.status_code = 0;
 
+    sweeper(&pitch, -4500, 4500, 50);
+    payload.data = pitch;
+    send_can_fix_msg(0x180, &payload);
+
+    sweeper(&roll, -4500, 4500, 50);
+    payload.data = roll;
+    send_can_fix_msg(0x181, &payload);
+
+    sweeper(&airspeed, 0, 1400, 50);
     payload.data = airspeed;
     send_can_fix_msg(0x183, &payload);
 
-    payload.data = roll * 10;
-    send_can_fix_msg(0x181, &payload);
-
-    payload.data = -pitch * 10;
-    send_can_fix_msg(0x180, &payload);
-
+    sweeper(&altitude, 0, 10000, 100);
     payload.data = altitude;
     send_can_fix_msg(0x184, &payload);
 
+    sweeper(&heading, 0, 3600, 50);
     payload.data = heading;
     send_can_fix_msg(0x185, &payload);
 
@@ -357,6 +329,11 @@ int main(void)
 
     printf("temperature: %u\n\r", temperature);
     printf("hello world\n\r");
+    uint8_t buffer[20];
+    //strcpy(buffer, "hello world");
+    buffer[0] = 'h';
+    buffer[1] = 'i';
+    HAL_UART_Transmit(&huart2, buffer, 2, HAL_MAX_DELAY);
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
