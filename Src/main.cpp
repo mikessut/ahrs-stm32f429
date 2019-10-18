@@ -29,6 +29,10 @@
 #include "lsm6ds33.h"
 #include "lis3mdl.h"
 #include "kalman.h"
+#include <cstring>
+
+#define ACCEL_SF 0.061/1000.0   // mg/bit
+#define GYRO_SF 4.375   // mdps/bit
 
 /* USER CODE END Includes */
 
@@ -174,15 +178,9 @@ void initialize_CAN()
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint16_t airspeed = 0;
-  int32_t altitude = 0;
-  uint32_t max_altitude = 10000;
-  uint16_t max_airspeed = 1400;
-  int16_t airspeed_increment = max_airspeed / 250;
-  int16_t altitude_increment = max_altitude / 250;
   Kalman k;
+  float x, y, z;
 
-  k.predict(.038);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -230,8 +228,6 @@ int main(void)
   if (lis3mdl_initialize(&hspi2, GPIOC, GPIO_PIN_0))
       printf("LIS3MDL Initilization Error\r\n");
 
-  uint8_t state = 0;
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -250,19 +246,6 @@ int main(void)
     int16_t mag_y;
     int16_t mag_z;
 
-    int16_t roll = 0;
-    int16_t pitch = 0;
-    double heading_temp = 0;
-    int16_t heading = 0;
-
-    airspeed += airspeed_increment;
-    altitude += altitude_increment;
-
-    if (airspeed > max_airspeed || airspeed < 1 || altitude < 1) {
-      airspeed_increment *= -1;
-      altitude_increment *= -1;
-    }
-
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
 
@@ -274,47 +257,18 @@ int main(void)
     lsm6ds33_read_accel_y(&accel_y);
     lsm6ds33_read_accel_z(&accel_z);
 
-    double x_buff = accel_x;
-    double y_buff = accel_y;
-    double z_buff = accel_z;
-
-    roll = atan2((double)accel_y, (double)accel_z) * 573;
-    pitch = atan2((- x_buff) , sqrt(y_buff * y_buff + z_buff * z_buff)) * 573;
-    printf("%d\r\n", roll);
-
     lis3mdl_read_mag_x(&mag_x);
     lis3mdl_read_mag_y(&mag_y);
     lis3mdl_read_mag_z(&mag_z);
 
-    heading_temp = atan2(mag_x, -mag_y);
-
-    heading_temp += M_PI; // the sensor is 180 deg off
-
-    heading_temp -= 0.22;
-
-    if(heading_temp < 0)
-      heading_temp += 2*M_PI;
-
-    if(heading_temp > 2*M_PI)
-      heading_temp -= 2*M_PI;
-
-    heading_temp *= (180/M_PI);
-    heading = heading_temp * 10;
-
-    printf("heading: %d\r\n", heading/10);
-
-//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//    HAL_SPI_TransmitReceive(&hspi4, (uint8_t*)&txData, (uint8_t*)&rxData, sizeof(rxData), 100);
-//
-//    while( hspi4.State == HAL_SPI_STATE_BUSY );  // wait xmission complete
-//    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-//
-//    if (rxData[0] == 0xFF || rxData[1] == 0xFF)
-//      continue;
-//
-//    printf("%c%c", rxData[0], rxData[1]);
+    //k.predict(.038);
+    x = ((float)accel_x)*ACCEL_SF;
+    y = ((float)accel_y)*ACCEL_SF;
+    z = ((float)accel_z)*ACCEL_SF;
+    //k.update_accel(Vector3f(x, y, z));
 
   /* START CAN BUS REPORTS */
+  /*
     normal_data payload;
     payload.node = 0x12;
     payload.index = 0;
@@ -334,6 +288,7 @@ int main(void)
 
     payload.data = heading;
     send_can_fix_msg(0x185, &payload);
+    */
 
     /* Static Pressure Port Sensor */
     uint8_t abs_press_data[4] = {0, 0, 0, 0};
@@ -360,6 +315,13 @@ int main(void)
     temperature = (temperature_data * 200)/2047 - 50;
 
     printf("temperature: %u\n\r", temperature);
+
+    uint8_t buffer[200];
+    //strcpy((char*)buffer, "hello world\n\r");
+    //sprintf((char*)buffer, "%d, %d, %d\r\n", accel_x, accel_y, accel_z);
+    sprintf((char*)buffer, "A: %.3f, %.3f, %.3f\r\n", x, y, z);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
