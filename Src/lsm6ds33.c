@@ -118,8 +118,8 @@ int lsm6ds33_initialize(SPI_HandleTypeDef* spi_port, GPIO_TypeDef* cs_gpio_bank,
 
   _read_reg_u8(0x0F, &who_am_i);
 
-  if (who_am_i != 0x69)
-    return -1;
+  //if (who_am_i != 0x69)
+  //  return -1;
 
   /* turn on accel */
   _write_reg(0x10, 0x20);
