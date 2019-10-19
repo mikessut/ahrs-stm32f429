@@ -31,8 +31,8 @@
 #include "kalman.h"
 #include <cstring>
 
-#define ACCEL_SF 0.061/1000.0   // mg/bit
-#define GYRO_SF 4.375   // mdps/bit
+#define ACCEL_SF 0.061/1000.0*9.81   // mg/bit
+#define GYRO_SF 4.375/1000.0*3.141592653589793/180.0   // mdps/bit
 
 /* USER CODE END Includes */
 
@@ -179,7 +179,12 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   Kalman k;
-  float x, y, z;
+  float wx, wy, wz, ax, ay, az;
+  int init_ctr = 0;
+  int32_t wx_offset = 0;
+  int32_t wy_offset = 0;
+  int32_t wz_offset = 0;
+  uint8_t buffer[200];
 
   /* USER CODE END 1 */
 
@@ -220,13 +225,26 @@ int main(void)
   initialize_CAN();
 
   /* sensors fail if we try to initialize right away */
-  HAL_Delay(500);
+  HAL_Delay(1500);
 
-  if (lsm6ds33_initialize(&hspi1, GPIOA, GPIO_PIN_1))
-    printf("LSM6DS33 Initilization Error\r\n");
+  if (lsm6ds33_initialize(&hspi1, GPIOA, GPIO_PIN_1)) {
+    //printf("LSM6DS33 Initilization Error\r\n");
+    sprintf((char*)buffer, "lsm6ds3 init error\r\n");
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+  } else {
+    sprintf((char*)buffer, "lsm6ds3 init success\r\n");
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+  }
 
-  if (lis3mdl_initialize(&hspi2, GPIOC, GPIO_PIN_0))
-      printf("LIS3MDL Initilization Error\r\n");
+  if (lis3mdl_initialize(&hspi2, GPIOC, GPIO_PIN_0)) {
+    sprintf((char*)buffer, "LIS3MDL init failure!!!\r\n");
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+  } else {
+    sprintf((char*)buffer, "LIS3MDL init success\r\n");
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+  }
+
+  HAL_Delay(1500);
 
   /* USER CODE END 2 */
 
@@ -261,34 +279,47 @@ int main(void)
     lis3mdl_read_mag_y(&mag_y);
     lis3mdl_read_mag_z(&mag_z);
 
-    //k.predict(.038);
-    x = ((float)accel_x)*ACCEL_SF;
-    y = ((float)accel_y)*ACCEL_SF;
-    z = ((float)accel_z)*ACCEL_SF;
-    //k.update_accel(Vector3f(x, y, z));
+    if (init_ctr < 100) {
+      wx_offset += gyro_x;
+      wy_offset += gyro_y;
+      wz_offset += gyro_z;
+      init_ctr++;
+      continue;
+    }
+
+    k.predict(.038);
+    ax = (float)accel_x*ACCEL_SF;
+    ay = (float)accel_y*ACCEL_SF;
+    az = (float)accel_z*ACCEL_SF;
+
+    wx = (float)(gyro_x - wx_offset/100)*GYRO_SF;
+    wy = (float)(gyro_y - wy_offset/100)*GYRO_SF;
+    wz = (float)(gyro_z - wz_offset/100)*GYRO_SF;
+
+    k.update_accel(Vector3f(ax, ay, az));
+    k.update_gyro(Vector3f(wx, wy, wz));
 
   /* START CAN BUS REPORTS */
-  /*
     normal_data payload;
     payload.node = 0x12;
     payload.index = 0;
     payload.status_code = 0;
 
-    payload.data = airspeed;
-    send_can_fix_msg(0x183, &payload);
+    // payload.data = airspeed;
+    // send_can_fix_msg(0x183, &payload);
 
-    payload.data = roll * 10;
+    payload.data = k.x(I_ROLL,0)*180.0/M_PI * 100;
     send_can_fix_msg(0x181, &payload);
 
-    payload.data = -pitch * 10;
+    payload.data = k.x(I_PITCH,0)*180.0/M_PI * 100;
     send_can_fix_msg(0x180, &payload);
 
-    payload.data = altitude;
-    send_can_fix_msg(0x184, &payload);
+    // payload.data = altitude;
+    // send_can_fix_msg(0x184, &payload);
+//
+    // payload.data = heading;
+    // send_can_fix_msg(0x185, &payload);
 
-    payload.data = heading;
-    send_can_fix_msg(0x185, &payload);
-    */
 
     /* Static Pressure Port Sensor */
     uint8_t abs_press_data[4] = {0, 0, 0, 0};
@@ -316,10 +347,24 @@ int main(void)
 
     printf("temperature: %u\n\r", temperature);
 
-    uint8_t buffer[200];
+    //uint8_t buffer[200];
     //strcpy((char*)buffer, "hello world\n\r");
     //sprintf((char*)buffer, "%d, %d, %d\r\n", accel_x, accel_y, accel_z);
-    sprintf((char*)buffer, "A: %.3f, %.3f, %.3f\r\n", x, y, z);
+    //sprintf((char*)buffer, "A: %.3f, %.3f, %.3f\r\n", x, y, z);
+    sprintf((char*)buffer, "P, R: %.1f, %.1f\r\n", k.x(I_PITCH, 0)*180.0/M_PI,
+                                                   k.x(I_ROLL, 0)*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "A: %.1f, %.1f, %.1f\r\n", ax,ay,az);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "KFA: %.1f, %.1f, %.1f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "G: %.1f, %.1f, %.1f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "KFG: %.1f, %.1f, %.1f\r\n", k.x(I_P,0)*180.0/M_PI, k.x(I_P,0)*180.0/M_PI, k.x(I_Q,0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
 
