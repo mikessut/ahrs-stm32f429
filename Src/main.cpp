@@ -37,8 +37,12 @@
 // #define PRINT_GYRO
 // #define PRINT_ACCEL
 // #define PRINT_KF_STATE
+#define PRINT_CAN_RX_DEBUG
 #define PRINT_CAN_RX
 //#define SEND_CAN_MSGS
+
+#define CANID_BARO 0x190
+#define CANID_OAT  0x406
 
 uint8_t buffer[200];
 uint8_t buffer2[11];
@@ -153,6 +157,50 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
   return 0;
 }
 
+/* Return 1 if message received */
+int CAN_rx(uint16_t *code, uint32_t *data) {
+  uint32_t nfifo = HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0);
+  uint8_t rx_buffer[10];
+
+  if (nfifo > 0) {
+    CAN_RxHeaderTypeDef rx_header;
+    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_buffer);
+    uint8_t *p = (uint8_t*)code;
+    p[0] = rx_buffer[1];
+    p[1] = rx_buffer[2];
+
+    p = (uint8_t*)data;
+    for (int i=3; i < rx_header.DLC; i++)
+      p[i-3] = rx_buffer[i];
+    // set remaining bytes as 0
+    for (int i=rx_header.DLC-3; i < 4; i++)
+      p[i] = 0;
+
+    #ifdef PRINT_CAN_RX_DEBUG
+    sprintf((char*)buffer, "CAN MSG RCVD:0x%x 0x%x len: %d\r\n", rx_header.StdId, rx_header.ExtId, rx_header.DLC);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    sprintf((char*)buffer, "data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n", rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3], rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7]);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    return 1;
+    /* Example:
+    CAN MSG RCVD:0x771 0xf823f001 len: 5
+    data: 0xc 0x90 0x1 0xcc 0x74 0x0 0x0 0x0
+    This message is sent for BARO: 29.90.
+    0xcc 0x74 makes sense: [hex(x) for x in struct.unpack('B'*4, struct.pack('I', 29900))]
+    0x0c  Same for difference messages
+    0x90
+    0x01  These two bytes are the message ID (0x190)
+    Spec would lead me to expect and index and and function code, but don't seem them...
+    Not sure what the first 3 bytes are. I think they should be Node, Index, and function code
+    */
+
+  } else {
+    return 0;
+  }
+}
+
 void initialize_CAN()
 {
   CAN_FilterTypeDef sFilterConfig;
@@ -187,6 +235,8 @@ void initialize_CAN()
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  float baro;  // inHg
+  float temperature; // degC
   Kalman k;
   float wx, wy, wz, ax, ay, az;
   int init_ctr = 0;
@@ -343,21 +393,21 @@ int main(void)
 
     uint8_t status = (abs_press_data[0] & 0xC0) >> 6;
     uint16_t bridge_data = ((abs_press_data[0] & 0x3F) << 8) + abs_press_data[1];
-    uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
-    uint16_t temperature = (temperature_data * 200)/2047 - 50;
+    //uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
+    //uint16_t temperature = (temperature_data * 200)/2047 - 50;
     uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
 
-    printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
+    //printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
 
     uint8_t diff_press_data[4] = {0, 0, 0, 0};
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
     HAL_SPI_Receive(&hspi3, diff_press_data, sizeof(diff_press_data), 100);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
 
-    temperature_data = (diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5);
-    temperature = (temperature_data * 200)/2047 - 50;
+    //temperature_data = (diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5);
+    //temperature = (temperature_data * 200)/2047 - 50;
 
-    printf("temperature: %u\n\r", temperature);
+    //printf("temperature: %u\n\r", temperature);
 
     #ifdef PRINT_KF_STATE
     sprintf((char*)buffer, "P, R: %.1f, %.1f\r\n", k.x(I_PITCH, 0)*180.0/M_PI,
@@ -379,29 +429,28 @@ int main(void)
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
-    #ifdef PRINT_CAN_RX
-    uint32_t nfifo = HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0);
-    if (nfifo > 0) {
-      CAN_RxHeaderTypeDef rx_header;
-      HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, (uint8_t*)buffer2);
-      sprintf((char*)buffer, "CAN MSG RCVD:0x%x 0x%x len: %d\r\n", rx_header.StdId, rx_header.ExtId, rx_header.DLC);
+    uint16_t can_rx_code;
+    uint32_t can_rx_data;
+    if (CAN_rx(&can_rx_code, &can_rx_data)) {
+      #ifdef PRINT_CAN_RX
+      sprintf((char*)buffer, "CAN MSG Received: 0x%02x with value %d\r\n", can_rx_code, can_rx_data);
       HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      sprintf((char*)buffer, "data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n", buffer2[0], buffer2[1], buffer2[2], buffer2[3], buffer2[4], buffer2[5], buffer2[6], buffer2[7]);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      /* Example:
-      CAN MSG RCVD:0x771 0xf823f001 len: 5
-      data: 0xc 0x90 0x1 0xcc 0x74 0x0 0x0 0x0
-      This message is sent for BARO: 29.90.
-      0xcc 0x74 makes sense: [hex(x) for x in struct.unpack('B'*4, struct.pack('I', 29900))]
-      0x0c  Same for difference messages
-      0x90
-      0x01  These two bytes are the message ID (0x190)
-      Spec would lead me to expect and index and and function code, but don't seem them...
-      Not sure what the first 3 bytes are. I think they should be Node, Index, and function code
-      */
+      #endif
 
+      if (can_rx_code == CANID_OAT) {
+        temperature = ((float)can_rx_data) / 100.0;
+        #ifdef PRINT_CAN_RX
+        sprintf((char*)buffer, "OAT Set to: %.1f\r\n", temperature);
+        HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+        #endif PRINT_CAN_RX
+      } else if (can_rx_code == CANID_BARO) {
+        baro = ((float)can_rx_data) / 1000.0;
+        #ifdef PRINT_CAN_RX
+        sprintf((char*)buffer, "BARO Set to: %.1f\r\n", baro);
+        HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+        #endif PRINT_CAN_RX
+      }
     }
-    #endif
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
