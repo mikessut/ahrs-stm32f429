@@ -237,7 +237,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   float baro;  // inHg
   float temperature; // degC
-  float abs_press;
+  float abs_press, diff_press;
   Kalman k;
   float wx, wy, wz, ax, ay, az;
   int init_ctr = 0;
@@ -400,7 +400,7 @@ int main(void)
     //uint16_t temperature = (temperature_data * 200)/2047 - 50;
     //uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
     abs_press = ((float)(bridge_data - 1638)*150.0) / ((float)(14745-1638));
-    sprintf((char*)buffer, "Pressure: %f\r\n", abs_press);
+    sprintf((char*)buffer, "Abs Pressure: %f (%d)\r\n", abs_press, bridge_data);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
     //printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
@@ -412,6 +412,12 @@ int main(void)
 
     //temperature_data = (diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5);
     //temperature = (temperature_data * 200)/2047 - 50;
+    // +/- 100mbar
+    //
+    bridge_data = ((diff_press_data[0] & 0x3F) << 8) + diff_press_data[1];
+    diff_press = ((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0;
+    sprintf((char*)buffer, "Diff Pressure: %f (%d)\r\n", diff_press, bridge_data);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
     //printf("temperature: %u\n\r", temperature);
 
@@ -448,13 +454,13 @@ int main(void)
         #ifdef PRINT_CAN_RX
         sprintf((char*)buffer, "OAT Set to: %.1f\r\n", temperature);
         HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-        #endif PRINT_CAN_RX
+        #endif
       } else if (can_rx_code == CANID_BARO) {
         baro = ((float)can_rx_data) / 1000.0;
         #ifdef PRINT_CAN_RX
         sprintf((char*)buffer, "BARO Set to: %.1f\r\n", baro);
         HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-        #endif PRINT_CAN_RX
+        #endif
       }
     }
 
