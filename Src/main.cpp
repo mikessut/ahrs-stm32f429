@@ -237,6 +237,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   float baro;  // inHg
   float temperature; // degC
+  float abs_press;
   Kalman k;
   float wx, wy, wz, ax, ay, az;
   int init_ctr = 0;
@@ -388,14 +389,19 @@ int main(void)
     uint8_t error = HAL_OK;
     error =  HAL_I2C_Master_Receive(&hi2c1, 0x70, abs_press_data, 4, 100);
     if (HAL_OK != error) {
-	printf("error: %u\n\r", error);
+      sprintf((char*)buffer, "Pressure read error: %d\r\n", error);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+	    printf("error: %u\n\r", error);
     }
 
     uint8_t status = (abs_press_data[0] & 0xC0) >> 6;
     uint16_t bridge_data = ((abs_press_data[0] & 0x3F) << 8) + abs_press_data[1];
     //uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
     //uint16_t temperature = (temperature_data * 200)/2047 - 50;
-    uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
+    //uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
+    abs_press = ((float)(bridge_data - 1638)*150.0) / ((float)(14745-1638));
+    sprintf((char*)buffer, "Pressure: %f\r\n", abs_press);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
     //printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
 
