@@ -34,7 +34,14 @@
 #define ACCEL_SF 0.061/1000.0*9.81   // mg/bit
 #define GYRO_SF 4.375/1000.0*3.141592653589793/180.0   // mdps/bit
 
+// #define PRINT_GYRO
+// #define PRINT_ACCEL
+// #define PRINT_KF_STATE
+#define PRINT_CAN_RX
+//#define SEND_CAN_MSGS
+
 uint8_t buffer[200];
+uint8_t buffer2[11];
 
 /* USER CODE END Includes */
 
@@ -301,6 +308,7 @@ int main(void)
     k.update_accel(Vector3f(ax, ay, az));
     k.update_gyro(Vector3f(wx, wy, wz));
 
+    #ifdef SEND_CAN_MSGS
   /* START CAN BUS REPORTS */
     normal_data payload;
     payload.node = 0x12;
@@ -315,6 +323,8 @@ int main(void)
 
     payload.data = k.x(I_PITCH,0)*180.0/M_PI * 100;
     send_can_fix_msg(0x180, &payload);
+
+    #endif
 
     // payload.data = altitude;
     // send_can_fix_msg(0x184, &payload);
@@ -349,26 +359,49 @@ int main(void)
 
     printf("temperature: %u\n\r", temperature);
 
-    //uint8_t buffer[200];
-    //strcpy((char*)buffer, "hello world\n\r");
-    //sprintf((char*)buffer, "%d, %d, %d\r\n", accel_x, accel_y, accel_z);
-    //sprintf((char*)buffer, "A: %.3f, %.3f, %.3f\r\n", x, y, z);
+    #ifdef PRINT_KF_STATE
     sprintf((char*)buffer, "P, R: %.1f, %.1f\r\n", k.x(I_PITCH, 0)*180.0/M_PI,
                                                    k.x(I_ROLL, 0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-
-    sprintf((char*)buffer, "A: %.1f, %.1f, %.1f\r\n", ax,ay,az);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-
     sprintf((char*)buffer, "KFA: %.1f, %.1f, %.1f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-
-    sprintf((char*)buffer, "G: %.1f, %.1f, %.1f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-
     sprintf((char*)buffer, "KFG: %.1f, %.1f, %.1f\r\n", k.x(I_P,0)*180.0/M_PI, k.x(I_P,0)*180.0/M_PI, k.x(I_Q,0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
 
+    #ifdef PRINT_ACCEL
+    sprintf((char*)buffer, "A: %.1f, %.1f, %.1f\r\n", ax,ay,az);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_GYRO
+    sprintf((char*)buffer, "G: %.1f, %.1f, %.1f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_CAN_RX
+    uint32_t nfifo = HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0);
+    if (nfifo > 0) {
+      CAN_RxHeaderTypeDef rx_header;
+      HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, (uint8_t*)buffer2);
+      sprintf((char*)buffer, "CAN MSG RCVD:0x%x 0x%x len: %d\r\n", rx_header.StdId, rx_header.ExtId, rx_header.DLC);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      sprintf((char*)buffer, "data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n", buffer2[0], buffer2[1], buffer2[2], buffer2[3], buffer2[4], buffer2[5], buffer2[6], buffer2[7]);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      /* Example:
+      CAN MSG RCVD:0x771 0xf823f001 len: 5
+      data: 0xc 0x90 0x1 0xcc 0x74 0x0 0x0 0x0
+      This message is sent for BARO: 29.90.
+      0xcc 0x74 makes sense: [hex(x) for x in struct.unpack('B'*4, struct.pack('I', 29900))]
+      0x0c  Same for difference messages
+      0x90
+      0x01  These two bytes are the message ID (0x190)
+      Spec would lead me to expect and index and and function code, but don't seem them...
+      Not sure what the first 3 bytes are. I think they should be Node, Index, and function code
+      */
+
+    }
+    #endif
 
     HAL_Delay(150);
     /* USER CODE END WHILE */
