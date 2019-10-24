@@ -34,6 +34,8 @@
 #define ACCEL_SF 0.061/1000.0*9.81   // mg/bit
 #define GYRO_SF 4.375/1000.0*3.141592653589793/180.0   // mdps/bit
 
+uint8_t buffer[200];
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -184,7 +186,7 @@ int main(void)
   int32_t wx_offset = 0;
   int32_t wy_offset = 0;
   int32_t wz_offset = 0;
-  uint8_t buffer[200];
+
 
   /* USER CODE END 1 */
 
