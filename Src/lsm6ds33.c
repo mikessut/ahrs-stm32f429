@@ -6,6 +6,8 @@
  */
 
 #include "lsm6ds33.h"
+#include <cstring>
+#include <cstdio>
 
 static GPIO_TypeDef* gpio_bank;
 static uint16_t gpio_pin;
@@ -13,6 +15,9 @@ static SPI_HandleTypeDef* hspi;
 //int32_t accel_x_cal;
 //int32_t accel_y_cal;
 //int32_t accel_z_cal;
+
+extern uint8_t buffer[];
+extern UART_HandleTypeDef huart2;
 
 static int _read_reg_u8(uint8_t address, uint8_t* value)
 {
@@ -116,13 +121,21 @@ int lsm6ds33_initialize(SPI_HandleTypeDef* spi_port, GPIO_TypeDef* cs_gpio_bank,
 
   _read_reg_u8(0x0F, &who_am_i);
 
-  //if (who_am_i != 0x69)
+  if (who_am_i != 0x69) {
+    sprintf((char*)buffer, "LIS3MDL whoami read back: 0x%x (expected 0x69)\r\n", who_am_i);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+  }
   //  return -1;
 
   /* turn on accel */
   _write_reg(0x10, 0x20);
   /* turn on gyro */
   _write_reg(0x11, 0x20);
+
+  _read_reg_u8(0x0F, &who_am_i);
+
+  sprintf((char*)buffer, "LIS3MDL whoami after powerup read back: 0x%x (expected 0x69)\r\n", who_am_i);
+  HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
 //  for (int i = 0; i < 20; i++) {
 //    int16_t temp_x = 0;
