@@ -36,6 +36,7 @@
 
 // #define PRINT_GYRO
 // #define PRINT_ACCEL
+#define PRINT_PRESSURE
 // #define PRINT_KF_STATE
 #define PRINT_CAN_RX_DEBUG
 #define PRINT_CAN_RX
@@ -43,6 +44,8 @@
 
 #define CANID_BARO 0x190
 #define CANID_OAT  0x406
+
+#define PSI2PASCAL 6894.76
 
 uint8_t buffer[200];
 uint8_t buffer2[11];
@@ -170,14 +173,14 @@ int CAN_rx(uint16_t *code, uint32_t *data) {
     p[1] = rx_buffer[2];
 
     p = (uint8_t*)data;
-    for (int i=3; i < rx_header.DLC; i++)
+    for (uint8_t i=3; i < rx_header.DLC; i++)
       p[i-3] = rx_buffer[i];
     // set remaining bytes as 0
-    for (int i=rx_header.DLC-3; i < 4; i++)
+    for (uint8_t i=rx_header.DLC-3; i < 4; i++)
       p[i] = 0;
 
     #ifdef PRINT_CAN_RX_DEBUG
-    sprintf((char*)buffer, "CAN MSG RCVD:0x%x 0x%x len: %d\r\n", rx_header.StdId, rx_header.ExtId, rx_header.DLC);
+    sprintf((char*)buffer, "CAN MSG RCVD:0x%lx len: %d\r\n", rx_header.StdId, rx_header.DLC);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     sprintf((char*)buffer, "data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n", rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3], rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7]);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
@@ -237,7 +240,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
   float baro;  // inHg
   float temperature; // degC
-  float abs_press, diff_press;
+  float abs_press, diff_press; // Pascal
+  float abs_press_temp, diff_press_temp;
   Kalman k;
   float wx, wy, wz, ax, ay, az;
   int init_ctr = 0;
@@ -387,7 +391,7 @@ int main(void)
     /* Static Pressure Port Sensor */
     uint8_t abs_press_data[4] = {0, 0, 0, 0};
     uint8_t error = HAL_OK;
-    error =  HAL_I2C_Master_Receive(&hi2c1, 0x70, abs_press_data, 4, 100);
+    error =  HAL_I2C_Master_Receive(&hi2c1, 0x71, abs_press_data, 4, 0xFFFF);
     if (HAL_OK != error) {
       sprintf((char*)buffer, "Pressure read error: %d\r\n", error);
       HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
@@ -396,12 +400,13 @@ int main(void)
 
     uint8_t status = (abs_press_data[0] & 0xC0) >> 6;
     uint16_t bridge_data = ((abs_press_data[0] & 0x3F) << 8) + abs_press_data[1];
+
+    abs_press_temp =  (float)((abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
     //uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
     //uint16_t temperature = (temperature_data * 200)/2047 - 50;
     //uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
-    abs_press = ((float)(bridge_data - 1638)*150.0) / ((float)(14745-1638));
-    sprintf((char*)buffer, "Abs Pressure: %f (%d)\r\n", abs_press, bridge_data);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    abs_press = ((float)(bridge_data - 1638)*15.0) / ((float)(14745-1638)) * PSI2PASCAL;
+
 
     //printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
 
@@ -416,8 +421,14 @@ int main(void)
     //
     bridge_data = ((diff_press_data[0] & 0x3F) << 8) + diff_press_data[1];
     diff_press = ((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0;
-    sprintf((char*)buffer, "Diff Pressure: %f (%d)\r\n", diff_press, bridge_data);
+    diff_press_temp = (float)((diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
+    #ifdef PRINT_PRESSURE
+    sprintf((char*)buffer, "Abs Pressure: %f Pa %.2f\r\n", abs_press, abs_press_temp);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "Diff Pressure: %f (%d) %.2f\r\n", diff_press, bridge_data, diff_press_temp);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
 
     //printf("temperature: %u\n\r", temperature);
 
