@@ -37,8 +37,8 @@
 
 // #define PRINT_GYRO
 // #define PRINT_ACCEL
-#define PRINT_PRESSURE
-// #define PRINT_KF_STATE
+// #define PRINT_PRESSURE
+#define PRINT_KF_STATE
 #define PRINT_CAN_RX_DEBUG
 #define PRINT_CAN_RX
 #define SEND_CAN_MSGS
@@ -160,7 +160,7 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
 //  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
 //    /* should add timeout here */
 //  }
-
+HAL_Delay(10);  // debugging weirdness; No reason should be necessary to delay...
   return 0;
 }
 
@@ -368,14 +368,6 @@ int main(void)
     k.update_accel(Vector3f(ax, ay, az));
     k.update_gyro(Vector3f(wx, wy, wz));
 
-
-    // payload.data = altitude;
-    // send_can_fix_msg(0x184, &payload);
-//
-    // payload.data = heading;
-    // send_can_fix_msg(0x185, &payload);
-
-
     /* Static Pressure Port Sensor */
     uint8_t abs_press_data[4] = {0, 0, 0, 0};
     uint8_t error = HAL_OK;
@@ -418,15 +410,14 @@ int main(void)
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
-    //printf("temperature: %u\n\r", temperature);
-
     #ifdef PRINT_KF_STATE
-    sprintf((char*)buffer, "P, R: %.1f, %.1f\r\n", k.x(I_PITCH, 0)*180.0/M_PI,
-                                                   k.x(I_ROLL, 0)*180.0/M_PI);
+    sprintf((char*)buffer, "P, R, Y: %.1f, %.1f, %.1f\r\n", k.x(I_PITCH, 0)*180.0/M_PI,
+                                                   k.x(I_ROLL, 0)*180.0/M_PI,
+                                                   k.x(I_YAW, 0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     sprintf((char*)buffer, "KFA: %.1f, %.1f, %.1f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "KFG: %.1f, %.1f, %.1f\r\n", k.x(I_P,0)*180.0/M_PI, k.x(I_P,0)*180.0/M_PI, k.x(I_Q,0)*180.0/M_PI);
+    sprintf((char*)buffer, "KFG: %.3f, %.3f, %.3f\r\n", k.x(I_P,0)*180.0/M_PI, k.x(I_P,0)*180.0/M_PI, k.x(I_Q,0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
@@ -474,13 +465,10 @@ int main(void)
     payload.index = 0;
     payload.status_code = 0;
 
-    // payload.data = airspeed;
-    // send_can_fix_msg(0x183, &payload);
-
-    payload.data = k.x(I_ROLL,0)*180.0/M_PI * 100;
+    payload.data = (int32_t)(k.x(I_ROLL,0)*180.0/M_PI * 100.0);
     send_can_fix_msg(0x181, &payload);
 
-    payload.data = k.x(I_PITCH,0)*180.0/M_PI * 100;
+    payload.data = (int32_t)(k.x(I_PITCH,0)*180.0/M_PI * 100.0);
     send_can_fix_msg(0x180, &payload);
 
     // 0x183 is IAS
@@ -489,13 +477,16 @@ int main(void)
     // 0x186 is VS
     // 0x18d is TAS
 
-    payload.data = ias * 10;
+    payload.data = (int32_t)(ias * 10.0);
     send_can_fix_msg(0x183, &payload);
 
-    payload.data = altitude;
+    payload.data = (int32_t)altitude;
     send_can_fix_msg(0x184, &payload);
 
-    payload.data = tas * 10;
+    payload.data = (int32_t)(k.x(I_YAW, 0)*180.0/M_PI * 10.0);
+    send_can_fix_msg(0x185, &payload);
+
+    payload.data = (uint32_t)(tas * 10.0);
     send_can_fix_msg(0x18d, &payload);
 
     #endif

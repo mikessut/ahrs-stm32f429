@@ -31,6 +31,6 @@ Load driver: `sudo slcand -o -c -s4 /dev/ttyACM0 can0`
 Activate: `sudo ifconfig can0 up`
 
 Run gateway from: `~/FIX-Gateway`.  
-   `fixgw.py` is gateway server
+   `fixgw.py` is gateway server (seems to need restart when AHRS board is restarted?)
    `fixgwc.py` is client
 pyEfis.py is run from: `~/pyEfis`

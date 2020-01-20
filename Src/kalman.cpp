@@ -82,7 +82,9 @@ Kalman::Kalman() : air(), gnd() {
              0, cos(PI), sin(PI),
              0, -sin(PI), cos(PI);
 
-  active_filter = KF_GND;
+  //active_filter = KF_GND;
+  x(I_TAS, 0) = 60*K2ms;
+  active_filter = KF_AIR;
 }
 
 
