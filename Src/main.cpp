@@ -29,6 +29,7 @@
 #include "lsm6ds33.h"
 #include "lis3mdl.h"
 #include "kalman.h"
+#include "pressure.h"
 #include <cstring>
 
 #define ACCEL_SF 0.061/1000.0*9.81   // mg/bit
@@ -40,7 +41,7 @@
 // #define PRINT_KF_STATE
 #define PRINT_CAN_RX_DEBUG
 #define PRINT_CAN_RX
-//#define SEND_CAN_MSGS
+#define SEND_CAN_MSGS
 
 #define CANID_BARO 0x190
 #define CANID_OAT  0x406
@@ -142,9 +143,10 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
       tx_data[i + 3] = (msg->data >> (8 * i)) & 0xFF;
   }
 
-  if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-    return -1;
-  }
+  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+  //  return -1;
+  //}
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
 
   if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
     printf("Error queing CAN TX msg\r\n");
@@ -242,6 +244,7 @@ int main(void)
   float temperature; // degC
   float abs_press, diff_press; // Pascal
   float abs_press_temp, diff_press_temp;
+  float tas, ias, altitude;
   Kalman k;
   float wx, wy, wz, ax, ay, az;
   int init_ctr = 0;
@@ -363,23 +366,6 @@ int main(void)
     k.update_accel(Vector3f(ax, ay, az));
     k.update_gyro(Vector3f(wx, wy, wz));
 
-    #ifdef SEND_CAN_MSGS
-  /* START CAN BUS REPORTS */
-    normal_data payload;
-    payload.node = 0x12;
-    payload.index = 0;
-    payload.status_code = 0;
-
-    // payload.data = airspeed;
-    // send_can_fix_msg(0x183, &payload);
-
-    payload.data = k.x(I_ROLL,0)*180.0/M_PI * 100;
-    send_can_fix_msg(0x181, &payload);
-
-    payload.data = k.x(I_PITCH,0)*180.0/M_PI * 100;
-    send_can_fix_msg(0x180, &payload);
-
-    #endif
 
     // payload.data = altitude;
     // send_can_fix_msg(0x184, &payload);
@@ -474,6 +460,43 @@ int main(void)
         #endif
       }
     }
+
+    // air data computations
+    airspeed_altitude(abs_press, diff_press, baro, temperature,
+                      &altitude, &ias, &tas);
+
+    #ifdef SEND_CAN_MSGS
+  /* START CAN BUS REPORTS */
+    normal_data payload;
+    payload.node = 0x12;
+    payload.index = 0;
+    payload.status_code = 0;
+
+    // payload.data = airspeed;
+    // send_can_fix_msg(0x183, &payload);
+
+    payload.data = k.x(I_ROLL,0)*180.0/M_PI * 100;
+    send_can_fix_msg(0x181, &payload);
+
+    payload.data = k.x(I_PITCH,0)*180.0/M_PI * 100;
+    send_can_fix_msg(0x180, &payload);
+
+    // 0x183 is IAS
+    // 0x184 is indicated altitude
+    // 0x185 is heading
+    // 0x186 is VS
+    // 0x18d is TAS
+
+    payload.data = ias * 10;
+    send_can_fix_msg(0x183, &payload);
+
+    payload.data = altitude * 10;
+    send_can_fix_msg(0x184, &payload);
+
+    payload.data = tas * 10;
+    send_can_fix_msg(0x18d, &payload);
+
+    #endif
 
     HAL_Delay(150);
     /* USER CODE END WHILE */

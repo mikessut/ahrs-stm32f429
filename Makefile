@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Src/pressure.c \
 Src/lis3mdl.c \
 Src/lsm6ds33.c \
 Src/stm32f4xx_hal_msp.c \
