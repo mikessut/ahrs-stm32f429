@@ -146,12 +146,14 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
   //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
   //  return -1;
   //}
-  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
+
 
   if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
     printf("Error queing CAN TX msg\r\n");
     return -1;
   }
+
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
 
   /* the STM32F427 has 3 tx mailboxes available
    * spin wait if none are free */
@@ -490,7 +492,7 @@ int main(void)
     payload.data = ias * 10;
     send_can_fix_msg(0x183, &payload);
 
-    payload.data = altitude * 10;
+    payload.data = altitude;
     send_can_fix_msg(0x184, &payload);
 
     payload.data = tas * 10;
