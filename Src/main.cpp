@@ -35,6 +35,8 @@
 #define ACCEL_SF 0.061/1000.0*9.81   // mg/bit
 #define GYRO_SF 4.375/1000.0*3.141592653589793/180.0   // mdps/bit
 
+#define NUM_INIT 100  // Number of points to average to determine gyro bias and inital mag vector
+
 // #define PRINT_GYRO
 // #define PRINT_ACCEL
 // #define PRINT_PRESSURE
@@ -253,6 +255,9 @@ int main(void)
   int32_t wx_offset = 0;
   int32_t wy_offset = 0;
   int32_t wz_offset = 0;
+  int32_t mag_init_x = 0;
+  int32_t mag_init_y = 0;
+  int32_t mag_init_z = 0;
 
 
   /* USER CODE END 1 */
@@ -348,12 +353,22 @@ int main(void)
     lis3mdl_read_mag_y(&mag_y);
     lis3mdl_read_mag_z(&mag_z);
 
-    if (init_ctr < 100) {
+    if (init_ctr < NUM_INIT) {
       wx_offset += gyro_x;
       wy_offset += gyro_y;
       wz_offset += gyro_z;
+
+      // Mag
+      mag_init_x += mag_x;
+      mag_init_y += mag_y;
+      mag_init_z += mag_z;
+
       init_ctr++;
       continue;
+    } else if (init_ctr == NUM_INIT) {
+      k.init_mag(Matrix<float, 3, 1>(mag_init_x/NUM_INIT, mag_init_y/NUM_INIT, mag_init_z/NUM_INIT));
+      k.normalize_yaw();
+      init_ctr++;
     }
 
     k.predict(.038);
@@ -367,6 +382,7 @@ int main(void)
 
     k.update_accel(Vector3f(ax, ay, az));
     k.update_gyro(Vector3f(wx, wy, wz));
+    k.update_mag(Vector3f(mag_x, mag_y, mag_z));
 
     /* Static Pressure Port Sensor */
     uint8_t abs_press_data[4] = {0, 0, 0, 0};

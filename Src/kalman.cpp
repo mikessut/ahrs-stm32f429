@@ -267,3 +267,35 @@ ostream& operator<<(ostream &ofs, const Kalman &k) {
     ofs << k.x(i,0) << ",";
   return ofs;
 };
+
+
+void Kalman::init_mag(Matrix<float, 3, 1> mag) {
+  // Initialize the mag states to a given mag vector (usually determined by average
+  // mag sensor a bunch of times)
+  // init['mag'] /= NUM_INIT
+  // init['mag'] = k.Rot_sns.dot(np.vstack(init['mag']))[:,0]
+  // print(init['mag'])
+  // k.x[k.state_names.index('psi'), 0] = -np.arctan2(init['mag'][1], init['mag'][0])
+  // in_plane_mag = np.linalg.norm(init['mag'][:2])
+  // out_of_plane_ang = np.arctan2(init['mag'][2], in_plane_mag)
+  // k.x[k.state_names.index('magxe'), 0] = in_plane_mag
+  // k.x[k.state_names.index('magze'), 0] = np.linalg.norm(init['mag'])*np.sin(out_of_plane_ang)
+  mag = Rot_sns * mag;
+  x(I_YAW, 0) = -atan2(mag(1,0), mag(0,0));
+  float in_plane_mag = sqrt(pow(mag(0,0), 2) + pow(mag(1,0), 2));
+  float out_of_plane_ang = atan2( mag(2,0), in_plane_mag);
+  x(I_MX, 0) = in_plane_mag;
+  x(I_MZ, 0) = sqrt(pow(mag(0,0), 2) + pow(mag(1,0), 2) + pow(mag(2,0), 2))*sin(out_of_plane_ang);
+}
+
+
+void Kalman::normalize_yaw() {
+  if (x(I_YAW, 0) > 2*M_PI) {
+    x(I_YAW, 0) -= 2*M_PI;
+    normalize_yaw();
+  } else if (x(I_YAW, 0) <= 0) {
+    x(I_YAW, 0) += 2*M_PI;
+    normalize_yaw();
+  }
+
+}

@@ -82,6 +82,8 @@ private:
 public:
   Matrix <float, NSTATES, 1> x;  // should be private, but public for testing
   Kalman();
+  void init_mag(Matrix<float, 3, 1>);
+  void normalize_yaw();
   void predict(float dt);
   void predict_air(float dt);
   void predict_gnd(float dt);
