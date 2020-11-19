@@ -1,266 +1,367 @@
 
 #include "kalman.h"
-#include "dcm.h"
 
 
-KalmanMatricies::KalmanMatricies() {
-    P = Matrix<float, NSTATES, NSTATES>::Zero();
-    Q = Matrix<float, NSTATES, NSTATES>::Zero();
-    R = Matrix<float, NSENSORS, NSENSORS>::Zero();
-}
+Kalman::Kalman() {
+  
+  // Setup P matrix
+  P = Matrix<float, NSTATES, NSTATES>::Zero();
+  // P(I_Q0, I_Q0) = pow(.3, 2);
+  // P(I_Q1, I_Q1) = pow(.1, 2);
+  // P(I_Q2, I_Q2) = pow(.1, 2);
+  // P(I_Q3, I_Q3) = 100;  // Allows for faster init of mag to heading
+// 
+  // for (int i=0; i < 3; i++) {
+  //   // 2 degree error
+  //   // sin(2deg) = .03
+  //   P(I_AX+i, I_AX+i) = pow(.03*g, 2);
+  // }
 
-
-void KalmanMatricies::predict(Eigen::Matrix<float, NSTATES, NSTATES> F) {
-  P = F*P*F.transpose() + Q;
-}
-
-
-Matrix<float, NSTATES, Dynamic> KalmanMatricies::update_sensors(Eigen::Matrix<float, Dynamic, NSTATES> H,
-                    int sns_idx, int nsensors) {
-  Matrix<float, Dynamic, Dynamic> S = H*P*H.transpose() + R.block(sns_idx, sns_idx, nsensors, nsensors);
-  Matrix<float, NSTATES, Dynamic> K = P*H.transpose()*S.inverse();
-  P = (Matrix<float, NSTATES, NSTATES>::Identity() - K*H)*P;
-  return K;
-}
-
-
-Kalman::Kalman() : air(), gnd() {
-  float p_err = pow(2*PI/180*DT, 2.0);
-  float q_err = pow(2*PI/180*DT, 2.0);
-  float r_err = pow(2*PI/180*DT, 2.0);
-  float ax_err = pow(2*g*DT, 2.0);  // confidence that ax, ay, az is from phi/TAS
-  float ay_err = pow(.2*g*DT, 2.0);
-  float az_err = pow(.2*g*DT, 2.0);
-  float pitch_err = pow(.01*PI/180*DT, 2.0);  // confidence that pitch is theta + dt*q
-  float roll_err =  pow(.01*PI/180*DT, 2.0);    // confident that roll is atan(TAS/g*<p,q,r projected to earth_rot_z>)
-  float yaw_err =   pow(.01*PI/180*DT, 2.0);             // confidence that yaw is psi + dt*<
-
-  float gnd_orient_err = pow(17.0*PI/180*DT, 2.0);
-  float earth_mag_err = pow(1.0/30.0*DT, 2.0);
-  float psi_err = .1/10*PI/180*DT;  // gnd only
-  float const_TAS_err = pow(6.9*K2ms*DT, 2.0);
+  float aerr_x = pow(.01*g, 2.0);  // confidence that ax, ay, az is from phi/TAS
+  float aerr_y = pow(.1*g, 2.0);
+  float aerr_z = pow(.01*g, 2.0);
+  float werr_x = pow(10*PI/180, 2) / 1;
+  float werr_y = pow(10*PI/180, 2) / 1;
+  float werr_z = pow(2*PI/180, 2) / 1;
 
   Matrix<float, NSTATES, 1> tmpv;
-  tmpv << p_err, q_err, r_err,
-          ax_err, ay_err, az_err,
-          roll_err, pitch_err, yaw_err,
-          const_TAS_err,
-          earth_mag_err, earth_mag_err;
-  air.Q = tmpv.asDiagonal();
+  // Build Q matrix
+  tmpv << 0, 0, 0, 0, 
+          aerr_x, aerr_y, aerr_z,
+          werr_x, werr_y, werr_z;
+  Q = tmpv.asDiagonal();
 
-  tmpv << r_err, r_err, pow(10*PI/180.0*DT,2),
-          ax_err, ay_err, az_err,
-          gnd_orient_err, gnd_orient_err, yaw_err,
-          const_TAS_err,
-          earth_mag_err, earth_mag_err;
-  gnd.Q = tmpv.asDiagonal();
-
-  // R init
-  float BW = 50;
-  // Gyro ~ 0.01 deg/rt-Hz
-  float gyro_err = pow(.01*sqrt(BW), 2.0);
-  // Accel 300 ug/rt-Hz
-  float accel_err = pow(.5*g, 2.0);
-  float mag_err = pow(.1, 2.0);
-  float TAS_err = pow(20*K2ms, 2.0);
-
-  Matrix <float, 3, 1> tmp3v;
-  tmp3v << gyro_err, gyro_err, gyro_err;
-  air.R.block(0,0, 3,3) = tmp3v.asDiagonal();
-  tmp3v << accel_err,accel_err,accel_err;
-  air.R.block(3,3, 3,3) = tmp3v.asDiagonal();
-  air.R(6,6) = TAS_err;
-  tmp3v << mag_err,mag_err,mag_err;
-  air.R.block(7,7, 3,3) = tmp3v.asDiagonal();
-
-  gnd.R = air.R;
-
+  // Initialize state vector
   x = Matrix<float, NSTATES, 1>::Zero();
-  x(I_AZ, 0) = -g;
-
-  Rot_sns << 1, 0, 0,
-             0, cos(PI), sin(PI),
-             0, -sin(PI), cos(PI);
-
-  //active_filter = KF_GND;
-  x(I_TAS, 0) = 60*K2ms;
-  active_filter = KF_AIR;
+  x(I_Q0) = 1.0;
+  x(I_AZ) = -g;
 }
 
 
 void Kalman::predict(float dt) {
-  if (x(I_TAS, 0) > AIR_GND_SWITCH_SPEED*K2ms) {
-    active_filter = KF_AIR;
-    predict_air(dt);
-  } else {
-    active_filter = KF_GND;
-    predict_gnd(dt);
-  }
-}
+  Eigen::Quaternion<float> q(x(0), x(1), x(2), x(3));
+  
+  float roll = q2roll(q);
+  Eigen::Matrix<float, 3, 1> ac = (q*Eigen::Quaternion<float>(0, 0, 1.0, 0)*q.inverse()).vec();
+  ac(2) = 0;
+  ac.normalize();
+  ac *= g*tan(roll);
 
-void Kalman::predict_air(float dt) {
-  Matrix<float, NSTATES, 1> lastx = x;
+  Eigen::Matrix<float, 3, 1> ag(0, 0, -g);
+  Eigen::Matrix<float, 3, 1> a = ag + ac;
 
-  x(0, 0) = lastx(I_P,0);
-  x(1, 0) = lastx(I_Q,0);
-  x(2, 0) = lastx(I_R,0);
-  x(3, 0) = g*sin(lastx(I_PITCH,0));
-  x(4, 0) = g*(sin(lastx(I_ROLL,0))*sin(lastx(I_YAW,0))*sin(lastx(I_PITCH,0)) + cos(lastx(I_ROLL,0))*cos(lastx(I_YAW,0)))*cos(lastx(I_YAW,0))*tan(lastx(I_ROLL,0)) - g*(sin(lastx(I_ROLL,0))*sin(lastx(I_PITCH,0))*cos(lastx(I_YAW,0)) - sin(lastx(I_YAW,0))*cos(lastx(I_ROLL,0)))*sin(lastx(I_YAW,0))*tan(lastx(I_ROLL,0)) - g*sin(lastx(I_ROLL,0))*cos(lastx(I_PITCH,0));
-  x(5, 0) = -g*(sin(lastx(I_ROLL,0))*sin(lastx(I_YAW,0)) + sin(lastx(I_PITCH,0))*cos(lastx(I_ROLL,0))*cos(lastx(I_YAW,0)))*sin(lastx(I_YAW,0))*tan(lastx(I_ROLL,0)) + g*(-sin(lastx(I_ROLL,0))*cos(lastx(I_YAW,0)) + sin(lastx(I_YAW,0))*sin(lastx(I_PITCH,0))*cos(lastx(I_ROLL,0)))*cos(lastx(I_YAW,0))*tan(lastx(I_ROLL,0)) - g*cos(lastx(I_ROLL,0))*cos(lastx(I_PITCH,0));
-  x(6, 0) = dt*lastx(I_P,0) + lastx(I_ROLL,0);
-  x(7, 0) = dt*lastx(I_Q,0) + lastx(I_PITCH,0);
-  x(8, 0) = lastx(I_YAW,0) + dt*g*tan(lastx(I_ROLL,0))/lastx(I_TAS,0);
-  x(9, 0) = lastx(I_TAS,0) + lastx(I_AX,0)*dt;
-  x(10, 0) = lastx(I_MX,0);
-  x(11, 0) = lastx(I_MZ,0);
+  // Rotate into body coord sys
+  Eigen::Matrix<float, 3, 1> ab = (q.inverse()*Eigen::Quaternion<float>(0, a(0), a(1), a(2))*q).vec();
 
-  Matrix<float, NSTATES, NSTATES> F = Matrix<float, NSTATES, NSTATES>::Zero();
-  F(0, 0) = 1;
+  Eigen::Quaternion<float> qd(1, x(I_WX)*.5*dt, x(I_WY)*.5*dt, x(I_WZ)*.5*dt);
 
-  F(1, 1) = 1;
+  q = q * qd;
+  q.normalize();
 
-  F(2, 2) = 1;
+  // update state vector
+  for (int i=0; i < 3; i++)
+    x(I_AX+i) = ab(i);
 
-  F(3, 7) = g*cos(lastx(I_PITCH,0));
+  x(I_Q0) = q.w();
+  x(I_Q1) = q.x();
+  x(I_Q2) = q.y();
+  x(I_Q3) = q.z();
 
-  F(4, 6) = g*(-cos(lastx(I_PITCH,0)) + 1)*cos(lastx(I_ROLL,0));
-  F(4, 7) = g*sin(lastx(I_ROLL,0))*sin(lastx(I_PITCH,0));
-
-  F(5, 6) = g*(cos(lastx(I_PITCH,0)) - 1 - 1/cos(lastx(I_ROLL,0))/cos(lastx(I_ROLL,0)))*sin(lastx(I_ROLL,0));
-  F(5, 7) = g*sin(lastx(I_PITCH,0))*cos(lastx(I_ROLL,0));
-
-  F(6, 0) = dt;
-  F(6, 6) = 1;
-
-  F(7, 1) = dt;
-  F(7, 7) = 1;
-
-  F(8, 6) = dt*g/(lastx(I_TAS,0)*cos(lastx(I_ROLL,0))*cos(lastx(I_ROLL,0)));
-  F(8, 8) = 1;
-  F(8, 9) = -dt*g*tan(lastx(I_ROLL,0))/lastx(I_TAS,0)/lastx(I_TAS,0);
-
-  F(9, 3) = dt;
-  F(9, 9) = 1;
-
-  F(10, 10) = 1;
-
-  F(11, 11) = 1;
-  air.predict(F);
-}
-
-void Kalman::predict_gnd(float dt) {
-  Matrix<float, NSTATES, 1> lastx = x;
-  x(0, 0) = 0;
-  x(1, 0) = 0;
-  x(2, 0) = lastx(I_R,0);
-  x(3, 0) = lastx(I_AX,0);
-  x(4, 0) = lastx(I_AY,0);
-  x(5, 0) = lastx(I_AZ,0);
-  x(6, 0) = 0;
-  x(7, 0) = 0;
-  x(8, 0) = dt*lastx(I_R,0) + lastx(I_YAW,0);
-  x(9, 0) = lastx(I_TAS,0) + lastx(I_AX,0)*dt;
-  x(10, 0) = lastx(I_MX,0);
-  x(11, 0) = lastx(I_MZ,0);
-
-  Matrix<float, NSTATES, NSTATES> F = Matrix<float, NSTATES, NSTATES>::Zero();
-  F(2, 2) = 1;
-
-  F(3, 3) = 1;
-
-  F(4, 4) = 1;
-
-  F(5, 5) = 1;
-
-
-
-  F(8, 2) = dt;
-  F(8, 8) = 1;
-
-  F(9, 3) = dt;
-  F(9, 9) = 1;
-
-  F(10, 10) = 1;
-
-  F(11, 11) = 1;
-  gnd.predict(F);
-}
-
-
-Matrix<float, NSTATES, Dynamic> Kalman::update_sensors(Eigen::Matrix<float, Dynamic, NSTATES> H,
-                    int sns_idx, int nsensors)
-{
-  if (active_filter == KF_GND)
-    return gnd.update_sensors(H, sns_idx, nsensors);
-  else if (active_filter == KF_AIR)
-    return air.update_sensors(H, sns_idx, nsensors);
-    // TODO raise?
-  throw -1;
+  Matrix<float, NSTATES, NSTATES> F = calcF(dt);
+  P = F * P * F.transpose() + Q*dt;
 }
 
 
 void Kalman::update_accel(Matrix<float, 3, 1> a) {
-  a = Rot_sns*a;
   Matrix<float, 3, 1> y = a - x.block(I_AX, 0, 3, 1);
   Matrix<float, 3, NSTATES> H = Matrix<float, 3, NSTATES>::Zero();
-  H(0,3) = 1;
-  H(1,4) = 1;
-  H(2,5) = 1;
-  Matrix<float, NSTATES, 3> K = update_sensors(H, IS_AX, 3);
+  H(0,4) = 1;
+  H(1,5) = 1;
+  H(2,6) = 1;
+  Matrix<float, 3, 3> S = H * P * H.transpose() + Eigen::Matrix<float, 3, 3>::Identity() * Raccel;
+  Matrix<float, NSTATES, 3> K = P * H.transpose() * S.inverse();
   x = x + K*y;
+  P = (Eigen::Matrix<float, NSTATES, NSTATES>::Identity() - K*H)*P;
+  q_normalize();
 }
 
 
 void Kalman::update_gyro(Matrix<float, 3, 1> w) {
-  w = Rot_sns*w;
-  Matrix<float, 3, 1> y = w - x.block(I_P, 0, 3, 1);
+  Matrix<float, 3, 1> y = w - x.block(I_WX, 0, 3, 1);
   Matrix<float, 3, NSTATES> H = Matrix<float, 3, NSTATES>::Zero();
-  H(0,0) = 1;
-  H(1,1) = 1;
-  H(2,2) = 1;
-  Matrix<float, NSTATES, 3> K = update_sensors(H, IS_WX, 3);
+  H(0,7) = 1;
+  H(1,8) = 1;
+  H(2,9) = 1;
+  Matrix<float, 3, 3> S = H * P * H.transpose() + Eigen::Matrix<float, 3, 3>::Identity() * Rgyro;
+  Matrix<float, NSTATES, 3> K = P * H.transpose() * S.inverse();
   x = x + K*y;
+  P = (Eigen::Matrix<float, NSTATES, NSTATES>::Identity() - K*H)*P;
+  q_normalize();
 }
 
 
 void Kalman::update_mag(Matrix<float, 3, 1> m)
 {
-  m = Rot_sns*m;
-  Vector3f me, mb;
-  me(0) = x(I_MX,0); me(1) = 0; me(2) = x(I_MZ,0);
-  mb = dcm(x(I_ROLL,0), x(I_PITCH,0), x(I_YAW,0))*me;
-  Matrix<float, 3, 1> y = m - mb;
-  Matrix<float, 3, NSTATES> H = Matrix<float, 3, NSTATES>::Zero();
-  H(0, 7) = -x(I_MX,0)*sin(x(I_PITCH,0))*cos(x(I_YAW,0)) - x(I_MZ,0)*cos(x(I_PITCH,0));
-  H(0, 8) = -x(I_MX,0)*sin(x(I_YAW,0))*cos(x(I_PITCH,0));
-  H(0, 10) = cos(x(I_YAW,0))*cos(x(I_PITCH,0));
-  H(0, 11) = -sin(x(I_PITCH,0));
+  Quaternion<float> q(x(I_Q0), x(I_Q1), x(I_Q2), x(I_Q3));
+  float roll = q2roll(q);
+  float pitch = q2pitch(q);
+  float heading = q2heading(q);
 
-  H(1, 6) = x(I_MX,0)*(sin(x(I_ROLL,0))*sin(x(I_YAW,0)) + sin(x(I_PITCH,0))*cos(x(I_ROLL,0))*cos(x(I_YAW,0))) + x(I_MZ,0)*cos(x(I_ROLL,0))*cos(x(I_PITCH,0));
-  H(1, 7) = (x(I_MX,0)*cos(x(I_YAW,0))*cos(x(I_PITCH,0)) - x(I_MZ,0)*sin(x(I_PITCH,0)))*sin(x(I_ROLL,0));
-  H(1, 8) = -x(I_MX,0)*(sin(x(I_ROLL,0))*sin(x(I_YAW,0))*sin(x(I_PITCH,0)) + cos(x(I_ROLL,0))*cos(x(I_YAW,0)));
-  H(1, 10) = sin(x(I_ROLL,0))*sin(x(I_PITCH,0))*cos(x(I_YAW,0)) - sin(x(I_YAW,0))*cos(x(I_ROLL,0));
-  H(1, 11) = sin(x(I_ROLL,0))*cos(x(I_PITCH,0));
+  // Remove roll and pitch from sensor reading to compute sensor heading vector
+  Quaternion<float> qtmp = Quaternion<float>(AngleAxis<float>(roll, Matrix<float, 3, 1>(1.0, 0, 0))) *
+                           Quaternion<float>(AngleAxis<float>(pitch, Matrix<float, 3, 1>(0, 1.0, 0)));
+  Matrix<float, 3, 1> sensor_heading = (qtmp * Quaternion<float>(0, m(0), m(1), m(2)) * qtmp.inverse()).vec();
+  sensor_heading(2) = 0;
+  sensor_heading.normalize();
+  sensor_heading(1) *= -1;
 
-  H(2, 6) = -x(I_MX,0)*sin(x(I_ROLL,0))*sin(x(I_PITCH,0))*cos(x(I_YAW,0)) + x(I_MX,0)*sin(x(I_YAW,0))*cos(x(I_ROLL,0)) - x(I_MZ,0)*sin(x(I_ROLL,0))*cos(x(I_PITCH,0));
-  H(2, 7) = (x(I_MX,0)*cos(x(I_YAW,0))*cos(x(I_PITCH,0)) - x(I_MZ,0)*sin(x(I_PITCH,0)))*cos(x(I_ROLL,0));
-  H(2, 8) = x(I_MX,0)*(sin(x(I_ROLL,0))*cos(x(I_YAW,0)) - sin(x(I_YAW,0))*sin(x(I_PITCH,0))*cos(x(I_ROLL,0)));
-  H(2, 10) = sin(x(I_ROLL,0))*sin(x(I_YAW,0)) + sin(x(I_PITCH,0))*cos(x(I_ROLL,0))*cos(x(I_YAW,0));
-  H(2, 11) = cos(x(I_ROLL,0))*cos(x(I_PITCH,0));
-  Matrix<float, NSTATES, 3> K = update_sensors(H, IS_MX, 3);
+  Matrix<float, 2, 1> y = sensor_heading.block(0, 0, 2, 1) - Matrix<float, 2, 1>(cos(heading), sin(heading));
+
+  Matrix<float, 2, NSTATES> H = calc_mag_H();
+  Matrix<float, 2, 2> S = H * P * H.transpose() + Eigen::Matrix<float, 2, 2>::Identity() * Rmag;
+  Matrix<float, NSTATES, 2> K = P * H.transpose() * S.inverse();
   x = x + K*y;
+  P = (Eigen::Matrix<float, NSTATES, NSTATES>::Identity() - K*H)*P;
+  q_normalize();
 }
 
 
-void Kalman::update_TAS(float tas)
-{
-  Matrix<float, 1, NSTATES> H = Matrix<float, 1, NSTATES>::Zero();
-  H(0,I_TAS) = 1;
-  Matrix<float, NSTATES, 1> K = update_sensors(H, IS_TAS, 1);
-  Matrix<float, 1, 1> y;
-  y(0,0) = tas - x(I_TAS, 0);
-  x = x + K*y;
+void Kalman::q_normalize() {
+  Quaternion<float> q(x(I_Q0), x(I_Q1), x(I_Q2), x(I_Q3));
+  q.normalize();
+  x(I_Q0) = q.w();
+  x(I_Q1) = q.x();
+  x(I_Q2) = q.y();
+  x(I_Q3) = q.z();
 }
+
+
+Eigen::Matrix<float, NSTATES, NSTATES> Kalman::calcF(float dt) {
+  Eigen::Matrix<float, NSTATES, NSTATES> F = Matrix<float, NSTATES, NSTATES>::Zero();
+  float q0, q1, q2, q3;
+  float wx, wy, wz;
+  q0 = x(I_Q0);
+  q1 = x(I_Q1);
+  q2 = x(I_Q2);
+  q3 = x(I_Q3);
+  wx = x(I_WX);
+  wy = x(I_WY);
+  wz = x(I_WZ);
+
+  float x0 = (1.0/2.0)*dt;
+  float x1 = wx*x0;
+  float x2 = -x1;
+  float x3 = wy*x0;
+  float x4 = -x3;
+  float x5 = wz*x0;
+  float x6 = -x5;
+  float x7 = q1*x0;
+  float x8 = -x7;
+  float x9 = q2*x0;
+  float x10 = -x9;
+  float x11 = q3*x0;
+  float x12 = -x11;
+  float x13 = q0*x0;
+  float x14 = 1.0*pow(q0, 2);
+  float x15 = pow(q1, 2);
+  float x16 = 1.0*x15;
+  float x17 = pow(q2, 2);
+  float x18 = 1.0*x17;
+  float x19 = 1.0*pow(q3, 2);
+  float x20 = x14 - x16 + x18 - x19;
+  float x21 = q1*q2;
+  float x22 = q0*q3;
+  float x23 = x21 - x22;
+  float x24 = 0.25*pow(x20, 2) + pow(x23, 2);
+  float x25 = pow(x24, -1.0/2.0);
+  float x26 = -2*x15 - 2*x17 + 1;
+  float x27 = 1.0/x26;
+  float x28 = x25*x27;
+  float x29 = 1.0*x28;
+  float x30 = x20*x29;
+  float x31 = g*q3;
+  float x32 = q1*x31;
+  float x33 = x30*x32;
+  float x34 = g*q0;
+  float x35 = 2*q0*q1 + 2*q2*q3;
+  float x36 = 2.0*x21 - 2.0*x22;
+  float x37 = x35*x36;
+  float x38 = 0.5*x37;
+  float x39 = 0.5*x20;
+  float x40 = x27/pow(x24, 3.0/2.0);
+  float x41 = x40*(-q0*x39 + q3*x23);
+  float x42 = x38*x41;
+  float x43 = x35*x39;
+  float x44 = x41*x43;
+  float x45 = g*x28;
+  float x46 = x38*x45;
+  float x47 = q1*x34;
+  float x48 = x29*x36;
+  float x49 = x46 + x47*x48;
+  float x50 = x31*x44 + x33 + x34*x42 + x49;
+  float x51 = x16*x45;
+  float x52 = g*q2;
+  float x53 = q1*x52;
+  float x54 = x30*x53;
+  float x55 = g*q1;
+  float x56 = x29*x35;
+  float x57 = q0*x52;
+  float x58 = x56*x57;
+  float x59 = x32*x56;
+  float x60 = x58 - x59;
+  float x61 = x36*x51 + x42*x55 + x44*x52 + x54 + x60;
+  float x62 = x32*x48;
+  float x63 = x35*x45;
+  float x64 = x14*x63;
+  float x65 = x19*x63;
+  float x66 = x30*x47;
+  float x67 = x39*x63;
+  float x68 = -x31*x42 + x34*x44 - x62 + x64 + x65 + x66 + x67;
+  float x69 = x47*x56;
+  float x70 = q3*x52;
+  float x71 = x56*x70;
+  float x72 = -g - x69 - x71;
+  float x73 = x48*x53 + x72;
+  float x74 = -x20*x51 + x42*x52 - x44*x55 + x73;
+  float x75 = x28*x38;
+  float x76 = x34*x75;
+  float x77 = x28*x43;
+  float x78 = x31*x77;
+  float x79 = x52 + x76 + x78;
+  float x80 = x14*x45;
+  float x81 = x40*(q1*x39 - q2*x23);
+  float x82 = x38*x81;
+  float x83 = x43*x81;
+  float x84 = 2.0*x25/pow(x26, 2);
+  float x85 = x47*x84;
+  float x86 = x20*x35;
+  float x87 = x84*x86;
+  float x88 = 1.0*x22*x45;
+  float x89 = x20*x88 + x60;
+  float x90 = x31*x83 + x32*x87 + x34*x82 + x36*x80 + x37*x85 + x89;
+  float x91 = x30*x57;
+  float x92 = g*x84;
+  float x93 = x15*x92;
+  float x94 = x53*x87;
+  float x95 = x37*x93 + x49 + x52*x83 + x55*x82 + x91 + x94;
+  float x96 = x36*x88;
+  float x97 = x37*x84;
+  float x98 = x20*x80 - x31*x82 - x32*x97 + x34*x83 + x72 + x85*x86 - x96;
+  float x99 = x48*x57;
+  float x100 = x18*x63 + x35*x51 + x53*x97;
+  float x101 = x100 + x52*x82 - x55*x83 - x66 - x67 - x86*x93 + x99;
+  float x102 = -x31 + x52*x77 + x55*x75;
+  float x103 = x52*x75;
+  float x104 = x55*x77;
+  float x105 = x48*x70;
+  float x106 = x17*x92;
+  float x107 = x40*(-q1*x23 - q2*x39);
+  float x108 = x107*x38;
+  float x109 = x107*x43;
+  float x110 = x105 + x106*x37 + x108*x52 - x109*x55 - x33 + x46 - x94;
+  float x111 = x19*x45;
+  float x112 = -x108*x31 + x109*x34 - x111*x36 + x57*x87 - x70*x97 + x89;
+  float x113 = g + x108*x34 + x109*x31 + x111*x20 + x57*x97 + x69 + x70*x87 + x71 + x96;
+  float x114 = x30*x70 + x67;
+  float x115 = x100 + x106*x86 + x108*x55 + x109*x52 + x114 + x62;
+  float x116 = x40*(q0*x23 + q3*x39);
+  float x117 = x116*x38;
+  float x118 = x116*x43;
+  float x119 = x114 + x117*x34 + x118*x31 - x64 - x65 + x99;
+  float x120 = x18*x45;
+  float x121 = x117*x55 + x118*x52 + x120*x20 + x73;
+  float x122 = -x105 - x117*x31 + x118*x34 - x46 + x91;
+  float x123 = x117*x52 - x118*x55 + x120*x36 - x54 - x58 + x59;
+  float x124 = x34*x77;
+  float x125 = x31*x75;
+  float x126 = x124 - x125 - x55;
+  float x127 = x103 - x104 - x34;
+  F(0, 0) = 1;
+  F(0, 1) = x2;
+  F(0, 2) = x4;
+  F(0, 3) = x6;
+  F(0, 7) = x8;
+  F(0, 8) = x10;
+  F(0, 9) = x12;
+  F(1, 0) = x1;
+  F(1, 1) = 1;
+  F(1, 2) = x5;
+  F(1, 3) = x4;
+  F(1, 7) = x13;
+  F(1, 8) = x12;
+  F(1, 9) = x9;
+  F(2, 0) = x3;
+  F(2, 1) = x6;
+  F(2, 2) = 1;
+  F(2, 3) = x1;
+  F(2, 7) = x11;
+  F(2, 8) = x13;
+  F(2, 9) = x8;
+  F(3, 0) = x5;
+  F(3, 1) = x3;
+  F(3, 2) = x2;
+  F(3, 3) = 1;
+  F(3, 7) = x10;
+  F(3, 8) = x7;
+  F(3, 9) = x13;
+  F(4, 0) = q0*x50 + q1*x61 - q2*x74 + q3*x68 + x79;
+  F(4, 1) = q0*x90 + q1*x95 - q2*x101 + q3*x98 + x102;
+  F(4, 2) = q0*x113 + q1*x115 - q2*x110 + q3*x112 - x103 + x104 + x34;
+  F(4, 3) = q0*x119 + q1*x121 - q2*x123 + q3*x122 + x126;
+  F(5, 0) = q0*x68 + q1*x74 + q2*x61 - q3*x50 + x126;
+  F(5, 1) = q0*x98 + q1*x101 + q2*x95 - q3*x90 + x127;
+  F(5, 2) = q0*x112 + q1*x110 + q2*x115 - q3*x113 + x102;
+  F(5, 3) = q0*x122 + q1*x123 + q2*x121 - q3*x119 - x52 - x76 - x78;
+  F(6, 0) = q0*x74 - q1*x68 + q2*x50 + q3*x61 + x127;
+  F(6, 1) = q0*x101 - q1*x98 + q2*x90 + q3*x95 - x124 + x125 + x55;
+  F(6, 2) = q0*x110 - q1*x112 + q2*x113 + q3*x115 + x79;
+  F(6, 3) = q0*x123 - q1*x122 + q2*x119 + q3*x121 + x102;
+  F(7, 7) = 1;
+  F(8, 8) = 1;
+  F(9, 9) = 1;
+
+  return F;
+}
+
+
+Matrix<float, 2, NSTATES> Kalman::calc_mag_H() {
+  Eigen::Matrix<float, 2, NSTATES> H = Matrix<float, 2, NSTATES>::Zero();
+  float q0, q1, q2, q3;
+  q0 = x(I_Q0);
+  q1 = x(I_Q1);
+  q2 = x(I_Q2);
+  q3 = x(I_Q3);
+
+  float x0 = 2*q3;
+  float x1 = 2*q0;
+  float x2 = 2*q1;
+  float x3 = q2*x2 + q3*x1;
+  float x4 = -2*pow(q2, 2) - 2*pow(q3, 2) + 1;
+  float x5 = pow(x3, 2);
+  float x6 = pow(x4, 2) + x5;
+  float x7 = pow(x6, -3.0/2.0);
+  float x8 = x4*x7;
+  float x9 = x3*x8;
+  float x10 = 2*q2;
+  float x11 = pow(x6, -1.0/2.0);
+  float x12 = 4*q2;
+  float x13 = x12*x4 - x2*x3;
+  float x14 = 4*q3;
+  float x15 = -x1*x3 + x14*x4;
+  float x16 = 2*x11;
+  float x17 = x5*x7;
+  float x18 = x3*x7;
+  H(0, 0) = -x0*x9;
+  H(0, 1) = -x10*x9;
+  H(0, 2) = -x11*x12 + x13*x8;
+  H(0, 3) = -x11*x14 + x15*x8;
+  H(1, 0) = q3*x16 - x0*x17;
+  H(1, 1) = q2*x16 - x10*x17;
+  H(1, 2) = x11*x2 + x13*x18;
+  H(1, 3) = x1*x11 + x15*x18;
+  return H;
+}
+
 
 ostream& operator<<(ostream &ofs, const Kalman &k) {
   for (int i=0; i < NSTATES; i++)
@@ -269,33 +370,30 @@ ostream& operator<<(ostream &ofs, const Kalman &k) {
 };
 
 
-void Kalman::init_mag(Matrix<float, 3, 1> mag) {
-  // Initialize the mag states to a given mag vector (usually determined by average
-  // mag sensor a bunch of times)
-  // init['mag'] /= NUM_INIT
-  // init['mag'] = k.Rot_sns.dot(np.vstack(init['mag']))[:,0]
-  // print(init['mag'])
-  // k.x[k.state_names.index('psi'), 0] = -np.arctan2(init['mag'][1], init['mag'][0])
-  // in_plane_mag = np.linalg.norm(init['mag'][:2])
-  // out_of_plane_ang = np.arctan2(init['mag'][2], in_plane_mag)
-  // k.x[k.state_names.index('magxe'), 0] = in_plane_mag
-  // k.x[k.state_names.index('magze'), 0] = np.linalg.norm(init['mag'])*np.sin(out_of_plane_ang)
-  mag = Rot_sns * mag;
-  x(I_YAW, 0) = -atan2(mag(1,0), mag(0,0));
-  float in_plane_mag = sqrt(pow(mag(0,0), 2) + pow(mag(1,0), 2));
-  float out_of_plane_ang = atan2( mag(2,0), in_plane_mag);
-  x(I_MX, 0) = in_plane_mag;
-  x(I_MZ, 0) = sqrt(pow(mag(0,0), 2) + pow(mag(1,0), 2) + pow(mag(2,0), 2))*sin(out_of_plane_ang);
+float q2roll(Eigen::Quaternion<float> q) {
+  return atan2(2*(q.w()*q.x() + q.y()*q.z()),
+                 1-2*(q.x()*q.x() + q.y()*q.y()));
 }
 
 
-void Kalman::normalize_yaw() {
-  if (x(I_YAW, 0) > 2*M_PI) {
-    x(I_YAW, 0) -= 2*M_PI;
-    normalize_yaw();
-  } else if (x(I_YAW, 0) <= 0) {
-    x(I_YAW, 0) += 2*M_PI;
-    normalize_yaw();
-  }
+float q2pitch(Eigen::Quaternion<float> q) {
+  return asin(2*(q.w()*q.y() - q.z()*q.x()));
+}
 
+
+float q2heading(Eigen::Quaternion<float> q) {
+  return atan2(2*(q.w()*q.z() + q.x()*q.y()),
+               1-2*(q.y()*q.y() + q.z()*q.z()));
+}
+
+float Kalman::roll() {
+  return q2roll(Quaternion<float>(x(0), x(1), x(2), x(3)));
+}
+
+float Kalman::pitch() {
+  return q2pitch(Quaternion<float>(x(0), x(1), x(2), x(3)));
+}
+
+float Kalman::heading() {
+  return q2heading(Quaternion<float>(x(0), x(1), x(2), x(3)));
 }

@@ -98,9 +98,9 @@ int lis3mdl_initialize(SPI_HandleTypeDef* spi_port, GPIO_TypeDef* cs_gpio_bank, 
 
   /* turn on mag */
   _write_reg(0x20, 0x70);
-  _write_reg(0x21, 0x00);
+  _write_reg(0x21, 0x00);  // 4 gauss range
   _write_reg(0x22, 0x00);
-  _write_reg(0x23, 0x0C);
+  _write_reg(0x23, 0x0C);  // Ultra-high-performance mode for z-axis
 
   return 0;
 }

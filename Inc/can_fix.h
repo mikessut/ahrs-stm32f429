@@ -64,9 +64,9 @@ typedef struct {
 } node_specific_data;
 
 /* returns size of array if successfully created. Otherwise returns negative error code */
-int32_t can_fix_construct_normal_data_msg(normal_data data, uint8_t *byte_stream, uint8_t size)
-{
-  return 0;
-}
+// int32_t can_fix_construct_normal_data_msg(normal_data data, uint8_t *byte_stream, uint8_t size)
+// {
+//   return 0;
+// }
 
 #endif /* CAN_FIX_H_ */

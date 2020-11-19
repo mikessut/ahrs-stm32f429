@@ -6,6 +6,7 @@
   - Loaded in: `C:\Program Files (x86)\GNU Tools ARM Embedded\8 2019-q3-update\bin`
 * Uses [Eigen](http://eigen.tuxfamily.org) c++ template library.
 * `make` from: `"C:\MinGW\bin\mingw32-make.exe"`
+* ST-LINK for linux (open source version) https://github.com/stlink-org/stlink
 
 Setup paths:
 ```

@@ -30,12 +30,14 @@ OPT = -Og
 #######################################
 # Build path
 BUILD_DIR = build
+EIGEN_INCLUDE_DIR = /usr/include/eigen3
 
 ######################################
 # source
 ######################################
 # C sources
 C_SOURCES =  \
+Src/utils.c \
 Src/pressure.c \
 Src/lis3mdl.c \
 Src/lsm6ds33.c \
@@ -139,7 +141,7 @@ C_INCLUDES =  \
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -I c:\work\eigen
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -I$(EIGEN_INCLUDE_DIR)
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
