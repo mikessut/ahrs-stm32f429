@@ -42,7 +42,7 @@
 #define PRINT_GYRO
 #define PRINT_ACCEL
 #define PRINT_MAG
-// #define PRINT_PRESSURE
+#define PRINT_PRESSURE
 #define PRINT_KF_STATE
 #define PRINT_CAN_RX_DEBUG
 #define PRINT_CAN_RX
@@ -258,9 +258,6 @@ int main(void)
     //uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
     abs_press = ((float)(bridge_data - 1638)*15.0) / ((float)(14745-1638)) * PSI2PASCAL;
 
-
-    //printf("status: %u  pressure (x1000)= %u  temperature = %u\r\n", status, pressure, temperature);
-
     uint8_t diff_press_data[4] = {0, 0, 0, 0};
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
     HAL_SPI_Receive(&hspi3, diff_press_data, sizeof(diff_press_data), 100);
@@ -274,10 +271,10 @@ int main(void)
     diff_press = ((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0;
     diff_press_temp = (float)((diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
     #ifdef PRINT_PRESSURE
-    sprintf((char*)buffer, "Abs Pressure: %f Pa %.2f\r\n", abs_press, abs_press_temp);
+    sprintf((char*)buffer, "PA: %f, %f\r\n", abs_press, abs_press_temp);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
 
-    sprintf((char*)buffer, "Diff Pressure: %f (%d) %.2f\r\n", diff_press, bridge_data, diff_press_temp);
+    sprintf((char*)buffer, "PD: %f, %f\r\n", diff_press, diff_press_temp);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
@@ -372,7 +369,7 @@ int main(void)
 
     #endif
 
-    //HAL_Delay(150);
+    HAL_Delay(150);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
