@@ -22,7 +22,7 @@ void MX_USART6_UART_Init(void);
 void MX_I2C1_Init(void);
 
 void initialize_CAN();
-int send_can_fix_msg(uint32_t msg_id, normal_data *msg);
+int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen);
 
 
 extern CAN_HandleTypeDef hcan1;

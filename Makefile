@@ -213,8 +213,8 @@ $(BUILD_DIR):
 # clean up
 #######################################
 clean:
-	del /f $(BUILD_DIR)
-	#-rm -fR $(BUILD_DIR)
+	#del /f $(BUILD_DIR)
+	rm -fR $(BUILD_DIR)
 
 
 #######################################

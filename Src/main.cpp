@@ -64,12 +64,12 @@ uint8_t buffer2[11];
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-  float baro;  // inHg
-  float temperature; // degC
+  float baro = 29.92;  // inHg
+  float temperature = 25; // degC
   float abs_press, diff_press; // Pascal
   float abs_press_temp, diff_press_temp;
-  float tas, ias, altitude;
+  float tas = 0;
+  float ias, altitude;
   Kalman k;
   float wx, wy, wz, ax, ay, az, mx, my, mz;
   int init_ctr = 0;
@@ -230,10 +230,11 @@ int main(void)
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-    k.predict(.042);
+    k.predict(.042, tas*K2ms);
     k.update_accel(Vector3f(ax, ay, az));
     k.update_gyro(Vector3f(wx, wy, wz));
-    // k.update_mag(Vector3f(mag_x, mag_y, mag_z));
+    //k.update_mag(Vector3f(mag_x, mag_y, mag_z));
+    k.update_mag(Vector3f(20, 0, 50));
     
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
@@ -279,28 +280,30 @@ int main(void)
     #endif
 
     #ifdef PRINT_KF_STATE
-    sprintf((char*)buffer, "P, R, Y: %.1f, %.1f, %.1f\r\n", k.pitch()*180.0/M_PI,
+    sprintf((char*)buffer, "P, R, Y: %f, %f, %f\r\n", k.pitch()*180.0/M_PI,
                                                    k.roll()*180.0/M_PI,
-                                                   k.heading()*180.0/M_PI);
+                                                   positive_heading(k.heading())*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "KFA: %.1f, %.1f, %.1f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
+    sprintf((char*)buffer, "KFA: %f, %f, %f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "KFG: %.3f, %.3f, %.3f\r\n", k.x(I_WX,0)*180.0/M_PI, k.x(I_WY,0)*180.0/M_PI, k.x(I_WZ,0)*180.0/M_PI);
+    sprintf((char*)buffer, "KFG: %f, %f, %f\r\n", k.x(I_WX,0)*180.0/M_PI, k.x(I_WY,0)*180.0/M_PI, k.x(I_WZ,0)*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    //sprintf((char*)buffer, "KFGB: %f, %f, %f\r\n", k.x(I_WBX,0)*180.0/M_PI, k.x(I_WBY,0)*180.0/M_PI, k.x(I_WBZ,0)*180.0/M_PI);
+    //HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
     #ifdef PRINT_ACCEL
-    sprintf((char*)buffer, "A: %.1f, %.1f, %.1f\r\n", ax,ay,az);
+    sprintf((char*)buffer, "A: %f, %f, %f\r\n", ax,ay,az);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
     #ifdef PRINT_GYRO
-    sprintf((char*)buffer, "G: %.1f, %.1f, %.1f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
+    sprintf((char*)buffer, "G: %f, %f, %f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
 
     #ifdef PRINT_MAG
-    sprintf((char*)buffer, "M: %.1f, %.1f, %.1f\r\n", mx, my, mz);
+    sprintf((char*)buffer, "M: %f, %f, %f\r\n", mx, my, mz);
     //sprintf((char*)buffer, "M: %d, %d, %d\r\n", mag_x, mag_y, mag_z);
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     #endif
@@ -317,13 +320,13 @@ int main(void)
       if (can_rx_code == CANID_OAT) {
         temperature = ((float)can_rx_data) / 100.0;
         #ifdef PRINT_CAN_RX
-        sprintf((char*)buffer, "OAT Set to: %.1f\r\n", temperature);
+        sprintf((char*)buffer, "OAT Set to: %f\r\n", temperature);
         HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
         #endif
       } else if (can_rx_code == CANID_BARO) {
         baro = ((float)can_rx_data) / 1000.0;
         #ifdef PRINT_CAN_RX
-        sprintf((char*)buffer, "BARO Set to: %.1f\r\n", baro);
+        sprintf((char*)buffer, "BARO Set to: %f\r\n", baro);
         HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
         #endif
       }
@@ -341,12 +344,11 @@ int main(void)
     payload.index = 0;
     payload.status_code = 0;
 
-    //payload.data = (int32_t)(k.roll()*180.0/M_PI * 100.0);
-    //payload.data = 1800;
-    //send_can_fix_msg(0x181, &payload);
+    payload.data = (int32_t)(k.roll()*180.0/M_PI * 100.0);
+    send_can_fix_msg(0x181, &payload, 2);
 
-    // payload.data = (int32_t)(k.pitch()*180.0/M_PI * 100.0);
-    // send_can_fix_msg(0x180, &payload);
+    payload.data = (int32_t)(k.pitch()*180.0/M_PI * 100.0);
+    send_can_fix_msg(0x180, &payload, 2);
 // 
     // // 0x183 is IAS
     // // 0x184 is indicated altitude
@@ -354,22 +356,21 @@ int main(void)
     // // 0x186 is VS
     // // 0x18d is TAS
 // 
-    // payload.data = (int32_t)(ias * 10.0);
-    // send_can_fix_msg(0x183, &payload);
+    payload.data = (int32_t)(ias * 10.0);
+    send_can_fix_msg(0x183, &payload, 2);
 // 
-    // payload.data = (int32_t)altitude;
-    payload.data = 5680;
-    send_can_fix_msg(0x184, &payload);
+    payload.data = (int32_t)altitude;
+    send_can_fix_msg(0x184, &payload, 4);
 // 
-    // payload.data = (int32_t)(k.heading()*180.0/M_PI * 10.0);
-    // send_can_fix_msg(0x185, &payload);
+    payload.data = (int32_t)(k.heading()*180.0/M_PI * 10.0);
+    send_can_fix_msg(0x185, &payload, 2);
 // 
     // payload.data = (uint32_t)(tas * 10.0);
     // send_can_fix_msg(0x18d, &payload);
 
     #endif
 
-    HAL_Delay(150);
+    //HAL_Delay(150);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

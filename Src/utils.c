@@ -27,7 +27,7 @@ int __io_putchar(int ch)
   return ch;
 }
 
-int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
+int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen)
 {
   CAN_TxHeaderTypeDef tx_header;
   uint8_t tx_data[8] = {0};
@@ -37,14 +37,14 @@ int send_can_fix_msg(uint32_t msg_id, normal_data *msg)
   tx_header.StdId = msg_id;
   tx_header.RTR = CAN_RTR_DATA;
   tx_header.IDE = CAN_ID_STD;
-  tx_header.DLC = 7;
+  tx_header.DLC = msglen + 3;
   tx_header.TransmitGlobalTime = DISABLE;
 
   tx_data[0] = msg->node;
   tx_data[1] = msg->index;
   tx_data[2] = msg->status_code;
 
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < msglen; i++) {
       tx_data[i + 3] = (msg->data >> (8 * i)) & 0xFF;
   }
 
