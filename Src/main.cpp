@@ -344,8 +344,9 @@ int main(void)
     payload.index = 0;
     payload.status_code = 0;
 
-    payload.data = (int32_t)(k.roll()*180.0/M_PI * 100.0);
-    send_can_fix_msg(0x181, &payload, 2);
+    //payload.data = (int32_t)(k.roll()*180.0/M_PI * 100.0);
+    //send_can_fix_msg(0x181, &payload, 2);
+    send_can_fix_msg(CANFIX_ROLL, (uint16_t)(k.roll()*180.0/M_PI * 100.0));
 
     payload.data = (int32_t)(k.pitch()*180.0/M_PI * 100.0);
     send_can_fix_msg(0x180, &payload, 2);
@@ -364,6 +365,11 @@ int main(void)
 // 
     payload.data = (int32_t)(k.heading()*180.0/M_PI * 10.0);
     send_can_fix_msg(0x185, &payload, 2);
+
+    float foo = 123.456;
+    //*((float*)&payload.data) = foo;
+    //send_can_fix_msg(0x600, &payload, 4);
+    send_can_msg(CAN_KF_WX, &foo);
 // 
     // payload.data = (uint32_t)(tas * 10.0);
     // send_can_fix_msg(0x18d, &payload);

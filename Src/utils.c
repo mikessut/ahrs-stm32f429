@@ -27,6 +27,96 @@ int __io_putchar(int ch)
   return ch;
 }
 
+int send_can_fix_msg(uint32_t msg_id, uint32_t msg) 
+{
+  send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 4);
+}
+
+int send_can_fix_msg(uint32_t msg_id, uint16_t msg) 
+{
+  send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 2);
+}
+
+int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen)
+{
+  CAN_TxHeaderTypeDef tx_header;
+  uint8_t tx_data[8] = {0};
+  uint32_t tx_mailbox;
+  int i = 3;
+
+  tx_header.StdId = msg_id;
+  tx_header.RTR = CAN_RTR_DATA;
+  tx_header.IDE = CAN_ID_STD;
+  tx_header.DLC = msglen + 3;
+  tx_header.TransmitGlobalTime = DISABLE;
+
+  tx_data[0] = CANFIX_NODE_ID;
+  tx_data[1] = 0;   // index
+  tx_data[2] = status;
+
+  for (i = 0; i < msglen; i++) {
+      tx_data[i + 3] = *(msg + i);
+  }
+
+  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+  //  return -1;
+  //}
+
+
+  if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
+    //printf("Error queing CAN TX msg\r\n");
+    return -1;
+  }
+
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
+
+  /* the STM32F427 has 3 tx mailboxes available
+   * spin wait if none are free */
+//  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+//    /* should add timeout here */
+//  }
+
+  return 0;
+}
+
+int send_can_msg(uint32_t msg_id, float *msg)
+{
+  CAN_TxHeaderTypeDef tx_header;
+  uint8_t tx_data[8] = {0};
+  uint32_t tx_mailbox;
+  int i = 3;
+
+  tx_header.StdId = msg_id;
+  tx_header.RTR = CAN_RTR_DATA;
+  tx_header.IDE = CAN_ID_STD;
+  tx_header.DLC = 4;
+  tx_header.TransmitGlobalTime = DISABLE;
+
+  for (i = 0; i < 4; i++) {
+      tx_data[i] = *((uint8_t*)msg + i);
+  }
+
+  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+  //  return -1;
+  //}
+
+
+  if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
+    //printf("Error queing CAN TX msg\r\n");
+    return -1;
+  }
+
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
+
+  /* the STM32F427 has 3 tx mailboxes available
+   * spin wait if none are free */
+//  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+//    /* should add timeout here */
+//  }
+
+  return 0;
+}
+
 int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen)
 {
   CAN_TxHeaderTypeDef tx_header;

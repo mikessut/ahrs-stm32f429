@@ -22,7 +22,13 @@ void MX_USART6_UART_Init(void);
 void MX_I2C1_Init(void);
 
 void initialize_CAN();
-int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen);
+int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen); // maybe obsolete?
+int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen);
+int send_can_fix_msg(uint32_t msg_id, uint32_t);
+int send_can_fix_msg(uint32_t msg_id, uint16_t);
+
+// Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
+int send_can_msg(uint32_t msg_id, float *msg);
 
 
 extern CAN_HandleTypeDef hcan1;
