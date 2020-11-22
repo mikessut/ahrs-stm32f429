@@ -8,28 +8,37 @@
 #ifndef CAN_FIX_H_
 #define CAN_FIX_H_
 
-#define CANFIX_NODE_ID    0x12
+#define CANFIX_NODE_ID        0x12
+    
+#define CANFIX_TACH           0x200
+#define CANFIX_PROP           0x202
+#define CANFIX_TORQUE         0x204
+#define CANFIX_TIT            0x206
+#define CANFIX_ITT            0x208
+#define CANFIX_TOT            0x20A
+#define CANFIX_FUELPS         0x20C
+#define CANFIX_OILPS          0x20E
+#define CANFIX_OILTS          0x210
+#define CANFIX_H2OTS          0x212
+#define CANFIX_FUELS          0x214
+#define CANFIX_OILLS          0x216
+#define CANFIX_H2OLS          0x218
+#define CANFIX_FUELF          0x21A
+#define CANFIX_FUELP          0x21C
+#define CANFIX_MAP            0x21E
+#define CANFIX_OILP           0x220
+#define CANFIX_OILT           0x222
+#define CANFIX_FUELQ_L        0x226
+#define CANFIX_FUELQ_R        0x227
 
-#define CANFIX_TACH       0x200
-#define CANFIX_PROP       0x202
-#define CANFIX_TORQUE     0x204
-#define CANFIX_TIT        0x206
-#define CANFIX_ITT        0x208
-#define CANFIX_TOT        0x20A
-#define CANFIX_FUELPS     0x20C
-#define CANFIX_OILPS      0x20E
-#define CANFIX_OILTS      0x210
-#define CANFIX_H2OTS      0x212
-#define CANFIX_FUELS      0x214
-#define CANFIX_OILLS      0x216
-#define CANFIX_H2OLS      0x218
-#define CANFIX_FUELF      0x21A
-#define CANFIX_FUELP      0x21C
-#define CANFIX_MAP        0x21E
-#define CANFIX_OILP       0x220
-#define CANFIX_OILT       0x222
-#define CANFIX_FUELQ_L    0x226
-#define CANFIX_FUELQ_R    0x227
+#define CANFIX_PITCH_RATE     0x400
+#define CANFIX_ROLL_RATE      0x401
+#define CANFIX_YAW_RATE       0x402
+#define CANFIX_TURN_RATE      0x403
+#define CANFIX_STATIC_PRES    0x404
+#define CANFIX_PITOT_PRES     0x405
+#define CANFIX_TAT            0x406
+#define CANFIX_SAT            0x407
 
 #define CANFIX_CHT_1          0x500
 #define CANFIX_CHT_2          0x502
@@ -58,7 +67,7 @@
 #define CANFIX_TAS      0x18D
 #define CANFIX_CAS      0x18E
 #define CANFIX_MACH     0x18F
-#define CANFIX_BARO     0x190
+#define CANFIX_ALT_SET  0x190
 #define CANFIX_PALT     0x191  // ?
 
 // Kalman Filter debug
@@ -82,8 +91,10 @@
 #define CAN_AZ         0x611
 #define CAN_MAGX       0x612
 #define CAN_MAGY       0x613
-#define CAN_PRESSA     0x614
-#define CAN_PRESSD     0x615
+#define CAN_MAGZ       0x614
+#define CAN_PRESSA     0x615
+#define CAN_PRESSD     0x616
+#define CAN_DT         0x617
 
 
 

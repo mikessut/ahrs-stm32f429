@@ -19,6 +19,130 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 UART_HandleTypeDef huart6;
 
+extern uint8_t buffer[200];
+
+int rx_canfix_msgs(float *temperature, float *baro) {
+
+  uint16_t can_rx_code;
+  uint32_t can_rx_data;
+  if (CAN_rx(&can_rx_code, &can_rx_data)) {
+    #ifdef PRINT_CAN_RX
+    sprintf((char*)buffer, "CAN MSG Received: 0x%02x with value %d\r\n", can_rx_code, can_rx_data);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    if (can_rx_code == CANFIX_TAT) {
+      *temperature = ((float)can_rx_data) / 100.0;
+      #ifdef PRINT_CAN_RX
+      sprintf((char*)buffer, "OAT Set to: %f\r\n", *temperature);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      #endif
+    } else if (can_rx_code == CANFIX_ALT_SET) {
+      *baro = ((float)can_rx_data) / 1000.0;
+      #ifdef PRINT_CAN_RX
+      sprintf((char*)buffer, "BARO Set to: %f\r\n", *baro);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      #endif
+    }
+  }
+}
+
+int send_canfix_msgs(Kalman *k, float *ias, float *altitude) {
+  
+    send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
+    send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
+    send_can_fix_msg(CANFIX_HEAD, (uint16_t)(k->heading()*180.0/M_PI * 100.0));
+    send_can_fix_msg(CANFIX_IAS, (uint16_t)(*ias * 10.0));
+    send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
+
+//    payload.data = (int32_t)(k->pitch()*180.0/M_PI * 100.0);
+//    send_can_fix_msg(0x180, &payload, 2);
+//// 
+//    // // 0x183 is IAS
+//    // // 0x184 is indicated altitude
+//    // // 0x185 is heading
+//    // // 0x186 is VS
+//    // // 0x18d is TAS
+//// 
+//    payload.data = (int32_t)(ias * 10.0);
+//    send_can_fix_msg(0x183, &payload, 2);
+//// 
+//    payload.data = (int32_t)altitude;
+//    send_can_fix_msg(0x184, &payload, 4);
+//// 
+//    payload.data = (int32_t)(k->heading()*180.0/M_PI * 10.0);
+//    send_can_fix_msg(0x185, &payload, 2);
+//
+//    float foo = 123.456;
+//    //*((float*)&payload.data) = foo;
+//    //send_can_fix_msg(0x600, &payload, 4);
+//    send_can_msg(CAN_KF_WX, &foo);
+//// 
+//    // payload.data = (uint32_t)(tas * 10.0);
+//    // send_can_fix_msg(0x18d, &payload);
+
+}
+
+void can_debug(Kalman *k, float *a, float *w, float *m, 
+               float *abs_press, float *abs_press_temp,
+               float *diff_press, float *diff_press_temp,
+               float *dt)
+{
+  for (int i=0; i < 3; i++) {
+    send_can_msg(CAN_KF_WX+i, &k->x(I_WX+i));
+    send_can_msg(CAN_WX+i, w + i);
+
+    send_can_msg(CAN_KF_AX+i, &k->x(I_AX+i));
+    send_can_msg(CAN_AX+i, a + i);
+
+    send_can_msg(CAN_MAGX+i, m + i);
+  }
+  send_can_msg(CAN_PRESSA, abs_press);
+  send_can_msg(CAN_PRESSD, diff_press);
+  send_can_msg(CAN_DT, dt);
+}
+
+void uart_debug(Kalman *k, float *a, float *w, float *m, 
+                float *abs_press, float *abs_press_temp,
+                float *diff_press, float *diff_press_temp) {
+
+    #ifdef PRINT_PRESSURE
+    sprintf((char*)buffer, "PA: %f, %f\r\n", *abs_press, *abs_press_temp);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+
+    sprintf((char*)buffer, "PD: %f, %f\r\n", *diff_press, *diff_press_temp);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_KF_STATE
+    sprintf((char*)buffer, "P, R, Y: %f, %f, %f\r\n", k->pitch()*180.0/M_PI,
+                                                   k->roll()*180.0/M_PI,
+                                                   positive_heading(k->heading())*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    sprintf((char*)buffer, "KFA: %f, %f, %f\r\n", k->x(I_AX,0), k->x(I_AY,0), k->x(I_AZ,0));
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    sprintf((char*)buffer, "KFG: %f, %f, %f\r\n", k->x(I_WX,0)*180.0/M_PI, k->x(I_WY,0)*180.0/M_PI, k->x(I_WZ,0)*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    //sprintf((char*)buffer, "KFGB: %f, %f, %f\r\n", k->x(I_WBX,0)*180.0/M_PI, k->x(I_WBY,0)*180.0/M_PI, k->x(I_WBZ,0)*180.0/M_PI);
+    //HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_ACCEL
+    sprintf((char*)buffer, "A: %f, %f, %f\r\n", a[0],a[1],a[2]);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_GYRO
+    sprintf((char*)buffer, "G: %f, %f, %f\r\n", w[0]*180.0/M_PI,w[1]*180.0/M_PI,w[2]*180.0/M_PI);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+
+    #ifdef PRINT_MAG
+    sprintf((char*)buffer, "M: %f, %f, %f\r\n", m[0], m[1], m[2]);
+    //sprintf((char*)buffer, "M: %d, %d, %d\r\n", mag_x, mag_y, mag_z);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #endif
+}
 
 int __io_putchar(int ch)
 {
@@ -29,12 +153,22 @@ int __io_putchar(int ch)
 
 int send_can_fix_msg(uint32_t msg_id, uint32_t msg) 
 {
-  send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 4);
+  return send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 4);
+}
+
+int send_can_fix_msg(uint32_t msg_id, int32_t msg) 
+{
+  return send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 4);
 }
 
 int send_can_fix_msg(uint32_t msg_id, uint16_t msg) 
 {
-  send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 2);
+  return send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 2);
+}
+
+int send_can_fix_msg(uint32_t msg_id, int16_t msg) 
+{
+  return send_can_fix_msg(msg_id, 0, (uint8_t*)&msg, 2);
 }
 
 int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen)
@@ -58,24 +192,11 @@ int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen)
       tx_data[i + 3] = *(msg + i);
   }
 
-  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-  //  return -1;
-  //}
-
-
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
   if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
     //printf("Error queing CAN TX msg\r\n");
     return -1;
   }
-
-  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
-
-  /* the STM32F427 has 3 tx mailboxes available
-   * spin wait if none are free */
-//  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-//    /* should add timeout here */
-//  }
-
   return 0;
 }
 
@@ -96,27 +217,16 @@ int send_can_msg(uint32_t msg_id, float *msg)
       tx_data[i] = *((uint8_t*)msg + i);
   }
 
-  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-  //  return -1;
-  //}
-
-
+  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
   if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
     //printf("Error queing CAN TX msg\r\n");
     return -1;
   }
-
-  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
-
-  /* the STM32F427 has 3 tx mailboxes available
-   * spin wait if none are free */
-//  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-//    /* should add timeout here */
-//  }
-
   return 0;
 }
 
+
+// Working to deprecate this function
 int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen)
 {
   CAN_TxHeaderTypeDef tx_header;

@@ -31,6 +31,7 @@
 #include "kalman.h"
 #include "pressure.h"
 #include <cstring>
+#include "stm32f4xx_hal.h"
 #include "utils.h"
 
 #define ACCEL_SF 0.061/1000.0*9.81   // convert to m/s2
@@ -39,20 +40,10 @@
 
 #define NUM_INIT 1000  // Number of points to average to determine gyro bias and inital mag vector
 
-#define PRINT_GYRO
-#define PRINT_ACCEL
-#define PRINT_MAG
-#define PRINT_PRESSURE
-#define PRINT_KF_STATE
-#define PRINT_CAN_RX_DEBUG
-#define PRINT_CAN_RX
-#define SEND_CAN_MSGS
+#define SEND_CANFIX_MSGS
 //#define RX_CAN_MSGS
-
-#define CANID_BARO 0x190
-#define CANID_OAT  0x406
-
-#define PSI2PASCAL 6894.76
+#define SEND_CAN_DEBUG_MSGS
+//#define SEND_UART_DEBUG_MSGS
 
 uint8_t buffer[200];
 uint8_t buffer2[11];
@@ -71,26 +62,19 @@ int main(void)
   float tas = 0;
   float ias, altitude;
   Kalman k;
-  float wx, wy, wz, ax, ay, az, mx, my, mz;
+  float w[3];
+  float a[3];
+  float m[3];
   int init_ctr = 0;
-  int32_t wx_offset = 0;
-  int32_t wy_offset = 0;
-  int32_t wz_offset = 0;
-
-  int32_t ax_offset = 0;
-  int32_t ay_offset = 0;
-  int32_t az_offset = 0;
-
-  int32_t mag_init_x = 0;
-  int32_t mag_init_y = 0;
-  int32_t mag_init_z = 0;
-
+  int32_t w_offset[3] = {0, 0, 0};
+  int32_t a_offset[3] = {0, 0, 0};
+  int32_t mag_init[3] = {0, 0, 0};
+  
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
   /* Configure the system clock */
   SystemClock_Config();
-
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -116,7 +100,6 @@ int main(void)
   HAL_Delay(1500);
 
   if (lsm6ds33_initialize(&hspi1, GPIOA, GPIO_PIN_1)) {
-    //printf("LSM6DS33 Initilization Error\r\n");
     sprintf((char*)buffer, "lsm6ds3 init error\r\n");
     HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
   } else {
@@ -156,224 +139,101 @@ int main(void)
 
   while (1)
   {
-    int16_t gyro_x;
-    int16_t gyro_y;
-    int16_t gyro_z;
-
-    int16_t accel_x;
-    int16_t accel_y;
-    int16_t accel_z;
-
-    int16_t mag_x;
-    int16_t mag_y;
-    int16_t mag_z;
-
+    int16_t gyro[3];
+    int16_t accel[3];
+    int16_t mag[3];
+    uint32_t tick_ctr = HAL_GetTick();
+    float dt;
+    
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
-
-    lsm6ds33_read_gyro_x(&gyro_x);
-    lsm6ds33_read_gyro_y(&gyro_y);
-    lsm6ds33_read_gyro_z(&gyro_z);
-
-    lsm6ds33_read_accel_x(&accel_x);
-    lsm6ds33_read_accel_y(&accel_y);
-    lsm6ds33_read_accel_z(&accel_z);
-
-    lis3mdl_read_mag_x(&mag_x);
-    lis3mdl_read_mag_y(&mag_y);
-    lis3mdl_read_mag_z(&mag_z);
+    // TODO: 
+    //   1. Single SPI transaction to read all 6 axes of LSM6DS3; Single transaction to read mag
+    
+    lsm6ds33_read_accel_x(&accel[0]);
+    lsm6ds33_read_accel_y(&accel[1]);
+    lsm6ds33_read_accel_z(&accel[2]);
+    lsm6ds33_read_gyro_x(&gyro[0]);
+    lsm6ds33_read_gyro_y(&gyro[1]);
+    lsm6ds33_read_gyro_z(&gyro[2]);
+    lis3mdl_read_mag_x(&mag[0]);
+    lis3mdl_read_mag_y(&mag[1]);
+    lis3mdl_read_mag_z(&mag[2]);    
 
     if (init_ctr < NUM_INIT) {
-      wx_offset += gyro_x;
-      wy_offset += gyro_y;
-      wz_offset += gyro_z;
-
-      ax_offset += accel_x;
-      ay_offset += accel_y;
-      az_offset += accel_z;
-
-      // Mag
-      mag_init_x += mag_x;
-      mag_init_y += mag_y;
-      mag_init_z += mag_z;
+      for (int i=0; i < 3; i ++) {
+        w_offset[i] += gyro[i];
+        a_offset[i] += accel[i];
+        mag_init[i] += mag[i];
+      }
 
       init_ctr++;
       continue;
     } else if (init_ctr == NUM_INIT) {
       //k.init_mag(Matrix<float, 3, 1>(mag_init_x/NUM_INIT, mag_init_y/NUM_INIT, mag_init_z/NUM_INIT));
       //k.normalize_yaw();
-
-      wx_offset /= NUM_INIT;
-      wy_offset /= NUM_INIT;
-      wz_offset /= NUM_INIT;
-
-      ax_offset /= NUM_INIT;
-      ay_offset /= NUM_INIT;
-      az_offset /= NUM_INIT;
-
+      for (int i=0; i < 3; i++) {
+        w_offset[i] /= NUM_INIT;
+        a_offset[i] /= NUM_INIT;
+      }
       init_ctr++;
     }
-
     
-    ax = (float) (accel_x - ax_offset)*ACCEL_SF;
-    ay = (float)-(accel_y - ay_offset)*ACCEL_SF;
-    az = (float)-(accel_z)*ACCEL_SF;
+    // Rotate sensors to z axis down
+    a[0] = (float) (accel[0] - a_offset[0])*ACCEL_SF;
+    a[1] = (float)-(accel[1] - a_offset[1])*ACCEL_SF;
+    a[2] = (float)-(accel[2])*ACCEL_SF;
 
-    wx = (float)(gyro_x -  wx_offset)*GYRO_SF;
-    wy = (float)-(gyro_y - wy_offset)*GYRO_SF;
-    wz = (float)-(gyro_z - wz_offset)*GYRO_SF;
+    w[0] = (float)(gyro[0] -  w_offset[0])*GYRO_SF;
+    w[1] = (float)-(gyro[1] - w_offset[1])*GYRO_SF;
+    w[2] = (float)-(gyro[2] - w_offset[2])*GYRO_SF;
 
-    mx = (float)mag_x*MAG_SF;
-    my = (float)-mag_y*MAG_SF;
-    mz = (float)-mag_z*MAG_SF;
+    m[0] = (float)mag[0]*MAG_SF;
+    m[1] = (float)-mag[1]*MAG_SF;
+    m[2] = (float)-mag[2]*MAG_SF;
 
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-    k.predict(.042, tas*K2ms);
-    k.update_accel(Vector3f(ax, ay, az));
-    k.update_gyro(Vector3f(wx, wy, wz));
+    //dt = (HAL_GetTick() - tick_ctr)*1e-3;
+    dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20
+    k.predict(.044, tas*K2ms);
+    //k.update_accel(Vector3f(ax, ay, az));
+    k.update_accel(Vector3f(Map<Vector3f>(a)));
+    k.update_gyro(Vector3f(Map<Vector3f>(w)));
     //k.update_mag(Vector3f(mag_x, mag_y, mag_z));
     k.update_mag(Vector3f(20, 0, 50));
+    tick_ctr = HAL_GetTick();
     
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
 
-    /* Static Pressure Port Sensor */
-    uint8_t abs_press_data[4] = {0, 0, 0, 0};
-    uint8_t error = HAL_OK;
-    error =  HAL_I2C_Master_Receive(&hi2c1, 0x71, abs_press_data, 4, 0xFFFF);
-    if (HAL_OK != error) {
-      sprintf((char*)buffer, "Pressure read error: %d\r\n", error);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-	    printf("error: %u\n\r", error);
-    }
+    abs_pressure(&abs_press, &abs_press_temp);
+    diff_pressure(&diff_press, &diff_press_temp);
 
-    uint8_t status = (abs_press_data[0] & 0xC0) >> 6;
-    uint16_t bridge_data = ((abs_press_data[0] & 0x3F) << 8) + abs_press_data[1];
-
-    abs_press_temp =  (float)((abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
-    //uint16_t temperature_data = (abs_press_data[2] << 3) + ((abs_press_data[3] & 0xE0) >> 5);
-    //uint16_t temperature = (temperature_data * 200)/2047 - 50;
-    //uint16_t pressure = ((bridge_data - 1638) * 15 * 1000) / (14745-1638);
-    abs_press = ((float)(bridge_data - 1638)*15.0) / ((float)(14745-1638)) * PSI2PASCAL;
-
-    uint8_t diff_press_data[4] = {0, 0, 0, 0};
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-    HAL_SPI_Receive(&hspi3, diff_press_data, sizeof(diff_press_data), 100);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-
-    //temperature_data = (diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5);
-    //temperature = (temperature_data * 200)/2047 - 50;
-    // +/- 100mbar
-    //
-    bridge_data = ((diff_press_data[0] & 0x3F) << 8) + diff_press_data[1];
-    diff_press = ((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0;
-    diff_press_temp = (float)((diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
-    #ifdef PRINT_PRESSURE
-    sprintf((char*)buffer, "PA: %f, %f\r\n", abs_press, abs_press_temp);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-
-    sprintf((char*)buffer, "PD: %f, %f\r\n", diff_press, diff_press_temp);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    #ifdef SEND_UART_DEBUG_MSGS
+    uart_debug(&k, a, w, m, 
+               &abs_press, &abs_press_temp,
+               &diff_press, &diff_press_temp);
     #endif
 
-    #ifdef PRINT_KF_STATE
-    sprintf((char*)buffer, "P, R, Y: %f, %f, %f\r\n", k.pitch()*180.0/M_PI,
-                                                   k.roll()*180.0/M_PI,
-                                                   positive_heading(k.heading())*180.0/M_PI);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "KFA: %f, %f, %f\r\n", k.x(I_AX,0), k.x(I_AY,0), k.x(I_AZ,0));
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "KFG: %f, %f, %f\r\n", k.x(I_WX,0)*180.0/M_PI, k.x(I_WY,0)*180.0/M_PI, k.x(I_WZ,0)*180.0/M_PI);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    //sprintf((char*)buffer, "KFGB: %f, %f, %f\r\n", k.x(I_WBX,0)*180.0/M_PI, k.x(I_WBY,0)*180.0/M_PI, k.x(I_WBZ,0)*180.0/M_PI);
-    //HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
-
-    #ifdef PRINT_ACCEL
-    sprintf((char*)buffer, "A: %f, %f, %f\r\n", ax,ay,az);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
-
-    #ifdef PRINT_GYRO
-    sprintf((char*)buffer, "G: %f, %f, %f\r\n", wx*180.0/M_PI,wy*180.0/M_PI,wz*180.0/M_PI);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
-
-    #ifdef PRINT_MAG
-    sprintf((char*)buffer, "M: %f, %f, %f\r\n", mx, my, mz);
-    //sprintf((char*)buffer, "M: %d, %d, %d\r\n", mag_x, mag_y, mag_z);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
+    #ifdef SEND_CAN_DEBUG_MSGS
+    can_debug(&k, a, w, m, 
+              &abs_press, &abs_press_temp,
+              &diff_press, &diff_press_temp, &dt);    
+    #endif              
 
     #ifdef RX_CAN_MSGS
-    uint16_t can_rx_code;
-    uint32_t can_rx_data;
-    if (CAN_rx(&can_rx_code, &can_rx_data)) {
-      #ifdef PRINT_CAN_RX
-      sprintf((char*)buffer, "CAN MSG Received: 0x%02x with value %d\r\n", can_rx_code, can_rx_data);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      #endif
-
-      if (can_rx_code == CANID_OAT) {
-        temperature = ((float)can_rx_data) / 100.0;
-        #ifdef PRINT_CAN_RX
-        sprintf((char*)buffer, "OAT Set to: %f\r\n", temperature);
-        HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-        #endif
-      } else if (can_rx_code == CANID_BARO) {
-        baro = ((float)can_rx_data) / 1000.0;
-        #ifdef PRINT_CAN_RX
-        sprintf((char*)buffer, "BARO Set to: %f\r\n", baro);
-        HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-        #endif
-      }
-    }
+    //rx_canfix_msgs(&temperature, &baro);
     #endif
 
     // air data computations
     airspeed_altitude(abs_press, diff_press, baro, temperature,
                       &altitude, &ias, &tas);
 
-    #ifdef SEND_CAN_MSGS
-  /* START CAN BUS REPORTS */
-    normal_data payload;
-    payload.node = 0x12;
-    payload.index = 0;
-    payload.status_code = 0;
-
-    //payload.data = (int32_t)(k.roll()*180.0/M_PI * 100.0);
-    //send_can_fix_msg(0x181, &payload, 2);
-    send_can_fix_msg(CANFIX_ROLL, (uint16_t)(k.roll()*180.0/M_PI * 100.0));
-
-    payload.data = (int32_t)(k.pitch()*180.0/M_PI * 100.0);
-    send_can_fix_msg(0x180, &payload, 2);
-// 
-    // // 0x183 is IAS
-    // // 0x184 is indicated altitude
-    // // 0x185 is heading
-    // // 0x186 is VS
-    // // 0x18d is TAS
-// 
-    payload.data = (int32_t)(ias * 10.0);
-    send_can_fix_msg(0x183, &payload, 2);
-// 
-    payload.data = (int32_t)altitude;
-    send_can_fix_msg(0x184, &payload, 4);
-// 
-    payload.data = (int32_t)(k.heading()*180.0/M_PI * 10.0);
-    send_can_fix_msg(0x185, &payload, 2);
-
-    float foo = 123.456;
-    //*((float*)&payload.data) = foo;
-    //send_can_fix_msg(0x600, &payload, 4);
-    send_can_msg(CAN_KF_WX, &foo);
-// 
-    // payload.data = (uint32_t)(tas * 10.0);
-    // send_can_fix_msg(0x18d, &payload);
-
+    #ifdef SEND_CANFIX_MSGS
+    send_canfix_msgs(&k, &ias, &altitude);
     #endif
 
     //HAL_Delay(150);
