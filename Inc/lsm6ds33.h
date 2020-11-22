@@ -10,6 +10,7 @@
 
 #include "stm32f4xx_hal.h"
 
+int lsm6ds33_read(int16_t* x);
 int lsm6ds33_read_gyro_x(int16_t* x);
 int lsm6ds33_read_gyro_y(int16_t* y);
 int lsm6ds33_read_gyro_z(int16_t* z);
