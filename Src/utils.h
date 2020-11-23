@@ -31,17 +31,19 @@ void MX_USART6_UART_Init(void);
 void MX_I2C1_Init(void);
 
 void initialize_CAN();
-int CAN_rx(uint16_t *code, uint32_t *data);
+int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len);
 int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen); // maybe obsolete?
 int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen);
 int send_can_fix_msg(uint32_t msg_id, uint32_t);
 int send_can_fix_msg(uint32_t msg_id, int32_t);
 int send_can_fix_msg(uint32_t msg_id, uint16_t);
 int send_can_fix_msg(uint32_t msg_id, int16_t msg); 
-int send_canfix_msgs(Kalman *k, float *ias, float *altitude);
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude);
 
 // Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
 int send_can_msg(uint32_t msg_id, float *msg);
+
+int rx_canfix_msgs(float *baro);
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
                 float *abs_press, float *abs_press_temp,
@@ -50,7 +52,7 @@ void uart_debug(Kalman *k, float *a, float *w, float *m,
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt);                
+               float *dt, float *baro);                
 
 
 extern CAN_HandleTypeDef hcan1;

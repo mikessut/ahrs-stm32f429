@@ -1,5 +1,6 @@
 
 #include "utils.h"
+#include "can_fix.h"
 
 CAN_HandleTypeDef hcan1;
 
@@ -21,72 +22,21 @@ UART_HandleTypeDef huart6;
 
 extern uint8_t buffer[200];
 
-int rx_canfix_msgs(float *temperature, float *baro) {
 
-  uint16_t can_rx_code;
-  uint32_t can_rx_data;
-  if (CAN_rx(&can_rx_code, &can_rx_data)) {
-    #ifdef PRINT_CAN_RX
-    sprintf((char*)buffer, "CAN MSG Received: 0x%02x with value %d\r\n", can_rx_code, can_rx_data);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
-
-    if (can_rx_code == CANFIX_TAT) {
-      *temperature = ((float)can_rx_data) / 100.0;
-      #ifdef PRINT_CAN_RX
-      sprintf((char*)buffer, "OAT Set to: %f\r\n", *temperature);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      #endif
-    } else if (can_rx_code == CANFIX_ALT_SET) {
-      *baro = ((float)can_rx_data) / 1000.0;
-      #ifdef PRINT_CAN_RX
-      sprintf((char*)buffer, "BARO Set to: %f\r\n", *baro);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      #endif
-    }
-  }
-}
-
-int send_canfix_msgs(Kalman *k, float *ias, float *altitude) {
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
   
     send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_HEAD, (uint16_t)(k->heading()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_IAS, (uint16_t)(*ias * 10.0));
+    send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
-
-//    payload.data = (int32_t)(k->pitch()*180.0/M_PI * 100.0);
-//    send_can_fix_msg(0x180, &payload, 2);
-//// 
-//    // // 0x183 is IAS
-//    // // 0x184 is indicated altitude
-//    // // 0x185 is heading
-//    // // 0x186 is VS
-//    // // 0x18d is TAS
-//// 
-//    payload.data = (int32_t)(ias * 10.0);
-//    send_can_fix_msg(0x183, &payload, 2);
-//// 
-//    payload.data = (int32_t)altitude;
-//    send_can_fix_msg(0x184, &payload, 4);
-//// 
-//    payload.data = (int32_t)(k->heading()*180.0/M_PI * 10.0);
-//    send_can_fix_msg(0x185, &payload, 2);
-//
-//    float foo = 123.456;
-//    //*((float*)&payload.data) = foo;
-//    //send_can_fix_msg(0x600, &payload, 4);
-//    send_can_msg(CAN_KF_WX, &foo);
-//// 
-//    // payload.data = (uint32_t)(tas * 10.0);
-//    // send_can_fix_msg(0x18d, &payload);
-
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt)
+               float *dt, float *baro)
 {
   for (int i=0; i < 3; i++) {
     send_can_msg(CAN_KF_WX+i, &k->x(I_WX+i));
@@ -100,6 +50,7 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
   send_can_msg(CAN_PRESSA, abs_press);
   send_can_msg(CAN_PRESSD, diff_press);
   send_can_msg(CAN_DT, dt);
+  send_can_fix_msg(CANFIX_ALT_SET, (uint16_t)((*baro)*1000));
 }
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
@@ -269,32 +220,44 @@ HAL_Delay(10);  // debugging weirdness; No reason should be necessary to delay..
   return 0;
 }
 
+int rx_canfix_msgs(float *baro) {
+  uint32_t id;
+  uint8_t data[10];
+  uint8_t len;
+  if (CAN_rx(&id, data, &len)) {
+    // sprintf((char*)buffer, "CAN rcvd: id: %d\r\n", id);
+    // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    if ((id >= 1792) && (id <= 2047) && (data[0] == 12)) {
+      // Node set command
+      // sprintf((char*)buffer, "Node set command rcvd\r\n");
+      // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      if ((*((uint16_t*)(&data[1]))) == CANFIX_ALT_SET) {
+        // Altimeter setting 
+        // sprintf((char*)buffer, "Baro set\r\n");
+        // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+        *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
+      }
+    }
+  }
+}
+
 /* Return 1 if message received */
-int CAN_rx(uint16_t *code, uint32_t *data) {
+// Passed data buffer has to be large enough for CAN message.
+int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len) {
   uint32_t nfifo = HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0);
-  uint8_t rx_buffer[10];
 
   if (nfifo > 0) {
     CAN_RxHeaderTypeDef rx_header;
-    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_buffer);
-    uint8_t *p = (uint8_t*)code;
-    p[0] = rx_buffer[1];
-    p[1] = rx_buffer[2];
+    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, data);
+    *id = rx_header.StdId;
+    *len = rx_header.DLC;
 
-    p = (uint8_t*)data;
-    for (uint8_t i=3; i < rx_header.DLC; i++)
-      p[i-3] = rx_buffer[i];
-    // set remaining bytes as 0
-    for (uint8_t i=rx_header.DLC-3; i < 4; i++)
-      p[i] = 0;
-
-    #ifdef PRINT_CAN_RX_DEBUG
-    sprintf((char*)buffer, "CAN MSG RCVD:0x%lx len: %d\r\n", rx_header.StdId, rx_header.DLC);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    sprintf((char*)buffer, "data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n", rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3], rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7]);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    #endif
-
+    // sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
+    // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    for (uint8_t i=0; i < rx_header.DLC; i++) {
+      // sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
+      // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    }  
     return 1;
     /* Example:
     CAN MSG RCVD:0x771 0xf823f001 len: 5

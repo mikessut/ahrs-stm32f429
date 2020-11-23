@@ -41,7 +41,7 @@
 #define NUM_INIT 1000  // Number of points to average to determine gyro bias and inital mag vector
 
 #define SEND_CANFIX_MSGS
-//#define RX_CAN_MSGS
+#define RX_CAN_MSGS
 #define SEND_CAN_DEBUG_MSGS
 //#define SEND_UART_DEBUG_MSGS
 
@@ -221,11 +221,11 @@ int main(void)
     #ifdef SEND_CAN_DEBUG_MSGS
     can_debug(&k, a, w, m, 
               &abs_press, &abs_press_temp,
-              &diff_press, &diff_press_temp, &dt);    
+              &diff_press, &diff_press_temp, &dt, &baro);    
     #endif              
 
     #ifdef RX_CAN_MSGS
-    //rx_canfix_msgs(&temperature, &baro);
+    rx_canfix_msgs(&baro);  //&temperature, &baro);
     #endif
 
     // air data computations
@@ -233,7 +233,7 @@ int main(void)
                       &altitude, &ias, &tas);
 
     #ifdef SEND_CANFIX_MSGS
-    send_canfix_msgs(&k, &ias, &altitude);
+    send_canfix_msgs(&k, &ias, &tas, &altitude);
     #endif
 
     //HAL_Delay(150);

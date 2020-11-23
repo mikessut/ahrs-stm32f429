@@ -28,12 +28,19 @@ MSGS = {
     0x614: {'name': 'CAN_MAGZ', 'disp': (8, 15+2*9)},  
     0x615: {'name': 'CAN_PRESSA', 'disp': (10, 15)},     
     0x616: {'name': 'CAN_PRESSD', 'disp': (11, 15)},     
-    0x617: {'name': 'CAN_DT', 'disp': (13, 15)},     
+    0x617: {'name': 'CAN_DT', 'disp': (15, 15)},  
+    0x180: {'name': 'CANFIX_PITCH', 'disp': (17, 15+9), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
+    0x181: {'name': 'CANFIX_ROLL', 'disp':  (17, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
+    0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
+    0x183: {'name': 'CANFIX_IAS', 'disp': (13, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
+    0x18D: {'name': 'CANFIX_TAS', 'disp': (13, 15+9), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
+    0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2), 'unpack_func': lambda x: struct.unpack('i', x[3:])[0]},
+    0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000},
 }
 
 if __name__ == '__main__':
 
-    bus = can.interface.Bus('can0', bustype='socketcan')
+    bus = can.interface.Bus('vcan0', bustype='socketcan')
 
     screen = curses.initscr()
     screen.nodelay(True)
@@ -50,7 +57,11 @@ if __name__ == '__main__':
     screen.addstr(10, 0, 'Abs P')
     screen.addstr(11, 0, 'Diff P')
 
-    screen.addstr(13, 0, 'dt')
+    screen.addstr(13, 0, 'IAS, TAS, Alt')
+
+    screen.addstr(15, 0, 'dt')
+
+    screen.addstr(17, 0, "R, P, H")
 
     run_bool = True
 
@@ -60,7 +71,14 @@ if __name__ == '__main__':
 
         if msg.arbitration_id in MSGS.keys():
             v = MSGS[msg.arbitration_id]
-            screen.addstr(*v['disp'], f"{struct.unpack('f', msg.data)[0]:9.3f}")
+            if 'unpack_func' in v:
+                try: 
+                    screen.addstr(*v['disp'], f"{v['unpack_func'](msg.data):9.3f}")
+                except struct.error:
+                    print(f"Trying to unpack {v}. {msg.data}")
+            else:
+                screen.addstr(*v['disp'], f"{struct.unpack('f', msg.data)[0]:9.3f}")
+                
 
         screen.refresh()
         c = screen.getch()
