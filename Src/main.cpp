@@ -65,6 +65,7 @@ int main(void)
   float w[3];
   float a[3];
   float m[3];
+  float hard_iron[3] = {0, 0, 0};
   int init_ctr = 0;
   int32_t w_offset[3] = {0, 0, 0};
   int32_t a_offset[3] = {0, 0, 0};
@@ -192,6 +193,10 @@ int main(void)
     m[1] = (float)-mag[1]*MAG_SF;
     m[2] = (float)-mag[2]*MAG_SF;
 
+    // apply hard iron compensation
+    for (int i=0; i < 3; i++)
+      m[i] += hard_iron[i];
+
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
@@ -225,7 +230,7 @@ int main(void)
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro, &temperature);
+    rx_canfix_msgs(&baro, &temperature, hard_iron);
     #endif
 
     // air data computations

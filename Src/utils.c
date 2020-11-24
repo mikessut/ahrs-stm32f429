@@ -34,7 +34,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
   
     send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
-    send_can_fix_msg(CANFIX_HEAD, (uint16_t)(k->heading()*180.0/M_PI * 10.0));
+    send_can_fix_msg(CANFIX_HEAD, (uint16_t)(positive_heading(k->heading())*180.0/M_PI * 10.0));
     send_can_fix_msg(CANFIX_IAS, (uint16_t)(*ias * 10.0));
     send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
@@ -46,17 +46,17 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
                float *dt, float *baro, float *temperature)
 {
   for (int i=0; i < 3; i++) {
-    send_can_msg(CAN_KF_WX+i, &k->x(I_WX+i));
-    send_can_msg(CAN_WX+i, w + i);
+    send_can_msg(CAN_KF_WX+i, (uint8_t*)&k->x(I_WX+i), sizeof(float));
+    send_can_msg(CAN_WX+i, (uint8_t*)(w + i), sizeof(float));
 
-    send_can_msg(CAN_KF_AX+i, &k->x(I_AX+i));
-    send_can_msg(CAN_AX+i, a + i);
+    send_can_msg(CAN_KF_AX+i, (uint8_t*)&k->x(I_AX+i), sizeof(float));
+    send_can_msg(CAN_AX+i, (uint8_t*)(a + i), sizeof(float));
 
-    send_can_msg(CAN_MAGX+i, m + i);
+    send_can_msg(CAN_MAGX+i, (uint8_t*)(m + i), sizeof(float));
   }
-  send_can_msg(CAN_PRESSA, abs_press);
-  send_can_msg(CAN_PRESSD, diff_press);
-  send_can_msg(CAN_DT, dt);
+  send_can_msg(CAN_PRESSA, (uint8_t*)abs_press, sizeof(float));
+  send_can_msg(CAN_PRESSD, (uint8_t*)diff_press, sizeof(float));
+  send_can_msg(CAN_DT, (uint8_t*)dt, sizeof(float));
   send_can_fix_msg(CANFIX_ALT_SET, (uint16_t)((*baro)*1000));
   send_can_fix_msg(CANFIX_SAT, (int16_t)((*temperature)*100));
 }
@@ -159,21 +159,20 @@ int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen)
   return 0;
 }
 
-int send_can_msg(uint32_t msg_id, float *msg)
+int send_can_msg(uint32_t msg_id, uint8_t *msg, int len)
 {
   CAN_TxHeaderTypeDef tx_header;
-  uint8_t tx_data[8] = {0};
+  uint8_t tx_data[8];
   uint32_t tx_mailbox;
-  int i = 3;
 
   tx_header.StdId = msg_id;
   tx_header.RTR = CAN_RTR_DATA;
   tx_header.IDE = CAN_ID_STD;
-  tx_header.DLC = 4;
+  tx_header.DLC = len;
   tx_header.TransmitGlobalTime = DISABLE;
 
-  for (i = 0; i < 4; i++) {
-      tx_data[i] = *((uint8_t*)msg + i);
+  for (int i = 0; i < len; i++) {
+      tx_data[i] = *(msg + i);
   }
 
   while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
@@ -184,24 +183,43 @@ int send_can_msg(uint32_t msg_id, float *msg)
   return 0;
 }
 
-int rx_canfix_msgs(float *baro, float *temperature) {
+int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron) {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
   if (CAN_rx(&id, data, &len)) {
     // sprintf((char*)buffer, "CAN rcvd: id: %d\r\n", id);
     // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    if ((id >= 1792) && (id <= 2047) && (data[0] == 12)) {
-      // Node set command
-      // sprintf((char*)buffer, "Node set command rcvd\r\n");
-      // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-      if ((*((uint16_t*)(&data[1]))) == CANFIX_ALT_SET) {
-        // Altimeter setting 
-        // sprintf((char*)buffer, "Baro set\r\n");
+    if ((id >= 1792) && (id <= 2047)) {
+      // Node specific message data 
+      // Byte
+      // 0: Control code
+      // 1-7: code specific
+      if ((data[0] >= CANFIX_CONTROLCODE_PARAM_SET_MIN) && (data[0] <= CANFIX_CONTROLCODE_PARAM_SET_MAX)) {
+        // Node set command
+        // sprintf((char*)buffer, "Node set command rcvd\r\n");
         // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-        *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
-      }
+        if ((*((uint16_t*)(&data[1]))) == CANFIX_ALT_SET) {
+          // Altimeter setting 
+          // sprintf((char*)buffer, "Baro set\r\n");
+          // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+          *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
+        }
+      } else if ((data[0] == CANFIX_CONTROLCODE_CFG_SET) && (data[1] == CANFIX_NODE_ID)) {
+        if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 7)) {
+          hard_iron[data[2] - CANFIX_CFG_KEY_HARDIRON_X] = *((float*)(&data[3]));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-1792), 0};
+          send_can_msg(1792 + CANFIX_NODE_ID, reply, 3);
+        }       
+      } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
+        if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 3)) {
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-1792), 0, 0, 0, 0, 0};
+          *((float*)(&reply[3])) = hard_iron[data[2]];
+          send_can_msg(1792 + CANFIX_NODE_ID, reply, 7);
+        }
+      } 
     } else if (id == CANFIX_SAT) {
+      // normal CANFIX msg for temperature
       *temperature = (float)(*((int16_t*)(&data[3]))) / 100.0;
     }
   }

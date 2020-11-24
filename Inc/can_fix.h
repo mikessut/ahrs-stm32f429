@@ -101,25 +101,26 @@
 #define CANFIX_STATUS_CODE_QUALITY 0x2
 #define CANFIX_STATUS_CODE_FAILURE 0x4
 
+// CANFIX Node Specific Message Control Codes
+#define CANFIX_CONTROLCODE_ID              0
+#define CANFIX_CONTROLCODE_BITRATE_SET     1
+#define CANFIX_CONTROLCODE_NODEID_SET      2
+#define CANFIX_CONTROLCODE_DISABLE_PARAM   3
+#define CANFIX_CONTROLCODE_ENABLE_PARAM    4
+#define CANFIX_CONTROLCODE_NODE_REPORT     5
+#define CANFIX_CONTROLCODE_NODE_STATUS     6
+#define CANFIX_CONTROLCODE_UPDATE_FW       7
+#define CANFIX_CONTROLCODE_TWOWAY          8
+#define CANFIX_CONTROLCODE_CFG_SET         9
+#define CANFIX_CONTROLCODE_CFG_QRY        10
+#define CANFIX_CONTROLCODE_NODE_DESC      11
+#define CANFIX_CONTROLCODE_PARAM_SET_MIN  12
+#define CANFIX_CONTROLCODE_PARAM_SET_MAX  19
 
-/* 
-// I think these are all deprecated
-typedef struct {
-  uint16_t alarm_code;
-  uint8_t data[6];
-} node_alarm_data;
+// Control code CFG_SET/QRY key values
+#define CANFIX_CFG_KEY_HARDIRON_X   0
+#define CANFIX_CFG_KEY_HARDIRON_Y   1
+#define CANFIX_CFG_KEY_HARDIRON_Z   2
 
-typedef struct {
-  uint8_t node;
-  uint8_t index;
-  uint8_t status_code;
-  uint32_t data;
-} normal_data;
-
-typedef struct {
-  uint8_t control_code;
-  uint8_t data[7];
-} node_specific_data;
-*/
 
 #endif /* CAN_FIX_H_ */

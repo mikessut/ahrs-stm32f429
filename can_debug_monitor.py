@@ -31,7 +31,7 @@ MSGS = {
     0x617: {'name': 'CAN_DT', 'disp': (15, 15)},  
     0x180: {'name': 'CANFIX_PITCH', 'disp': (17, 15+9), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
     0x181: {'name': 'CANFIX_ROLL', 'disp':  (17, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
-    0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
+    0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
     0x183: {'name': 'CANFIX_IAS', 'disp': (13, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
     0x18D: {'name': 'CANFIX_TAS', 'disp': (13, 15+9), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
     0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2), 'unpack_func': lambda x: struct.unpack('i', x[3:])[0]},
