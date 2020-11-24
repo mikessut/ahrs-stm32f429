@@ -22,12 +22,19 @@ UART_HandleTypeDef huart6;
 
 extern uint8_t buffer[200];
 
+float iir_filter(IIRFilterDef *filter, float x)
+{
+  float result = filter->b[0] * x + filter->b[1] * filter->x - filter->a*filter->y;
+  filter->x = x;
+  filter->y = result;
+  return result;
+}
 
 int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
   
     send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
-    send_can_fix_msg(CANFIX_HEAD, (uint16_t)(k->heading()*180.0/M_PI * 100.0));
+    send_can_fix_msg(CANFIX_HEAD, (uint16_t)(k->heading()*180.0/M_PI * 10.0));
     send_can_fix_msg(CANFIX_IAS, (uint16_t)(*ias * 10.0));
     send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
@@ -36,7 +43,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt, float *baro)
+               float *dt, float *baro, float *temperature)
 {
   for (int i=0; i < 3; i++) {
     send_can_msg(CAN_KF_WX+i, &k->x(I_WX+i));
@@ -51,6 +58,7 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
   send_can_msg(CAN_PRESSD, diff_press);
   send_can_msg(CAN_DT, dt);
   send_can_fix_msg(CANFIX_ALT_SET, (uint16_t)((*baro)*1000));
+  send_can_fix_msg(CANFIX_SAT, (int16_t)((*temperature)*100));
 }
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
@@ -176,51 +184,7 @@ int send_can_msg(uint32_t msg_id, float *msg)
   return 0;
 }
 
-
-// Working to deprecate this function
-int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen)
-{
-  CAN_TxHeaderTypeDef tx_header;
-  uint8_t tx_data[8] = {0};
-  uint32_t tx_mailbox;
-  int i = 3;
-
-  tx_header.StdId = msg_id;
-  tx_header.RTR = CAN_RTR_DATA;
-  tx_header.IDE = CAN_ID_STD;
-  tx_header.DLC = msglen + 3;
-  tx_header.TransmitGlobalTime = DISABLE;
-
-  tx_data[0] = msg->node;
-  tx_data[1] = msg->index;
-  tx_data[2] = msg->status_code;
-
-  for (i = 0; i < msglen; i++) {
-      tx_data[i + 3] = (msg->data >> (8 * i)) & 0xFF;
-  }
-
-  //if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-  //  return -1;
-  //}
-
-
-  if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_data, &tx_mailbox) != HAL_OK) {
-    //printf("Error queing CAN TX msg\r\n");
-    return -1;
-  }
-
-  while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {}
-
-  /* the STM32F427 has 3 tx mailboxes available
-   * spin wait if none are free */
-//  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-//    /* should add timeout here */
-//  }
-HAL_Delay(10);  // debugging weirdness; No reason should be necessary to delay...
-  return 0;
-}
-
-int rx_canfix_msgs(float *baro) {
+int rx_canfix_msgs(float *baro, float *temperature) {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
@@ -237,6 +201,8 @@ int rx_canfix_msgs(float *baro) {
         // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
         *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
       }
+    } else if (id == CANFIX_SAT) {
+      *temperature = (float)(*((int16_t*)(&data[3]))) / 100.0;
     }
   }
 }
@@ -252,11 +218,11 @@ int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len) {
     *id = rx_header.StdId;
     *len = rx_header.DLC;
 
-    // sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
-    // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
+    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     for (uint8_t i=0; i < rx_header.DLC; i++) {
-      // sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
-      // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+      sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
+      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
     }  
     return 1;
     /* Example:

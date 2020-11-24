@@ -221,11 +221,11 @@ int main(void)
     #ifdef SEND_CAN_DEBUG_MSGS
     can_debug(&k, a, w, m, 
               &abs_press, &abs_press_temp,
-              &diff_press, &diff_press_temp, &dt, &baro);    
+              &diff_press, &diff_press_temp, &dt, &baro, &temperature);    
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro);  //&temperature, &baro);
+    rx_canfix_msgs(&baro, &temperature);
     #endif
 
     // air data computations

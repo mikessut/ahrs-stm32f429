@@ -1,13 +1,14 @@
 
 #include "pressure.h"
 #include <math.h>
+#include "can_fix.h"
 #include "main.h"
+#include "utils.h"
 
 extern I2C_HandleTypeDef hi2c1;
 extern SPI_HandleTypeDef hspi3;
 
-// altitude filter states
-float alt_in_prev = 0;
+IIRFilterDef altitude_filter;
 
 void airspeed_altitude(float abs_press, float diff_press, float alt_setting, float oat,
                        float *altitude, float *ias, float *tas)
@@ -22,9 +23,10 @@ void airspeed_altitude(float abs_press, float diff_press, float alt_setting, flo
   // Filter altitude using IIR
   // from scipy.signal import iirfilter
   // iirfilter(1, .5, btype='lowpass', ftype='butter', output='ba')
-  float new_alt = h * CONV_M2FT;
-  *altitude = 0.01546629 * alt_in_prev + 0.01546629*new_alt - (-0.96906742)*(*altitude);
-  alt_in_prev = new_alt;
+  //float new_alt = h * CONV_M2FT;
+  //*altitude = 0.01546629 * alt_in_prev + 0.01546629*new_alt - (-0.96906742)*(*altitude);
+  //alt_in_prev = new_alt;
+  *altitude = iir_filter(&altitude_filter, h * CONV_M2FT);
   *ias = sqrt(diff_press*2/CONST_RHO0)*CONV_MS2KNOTS;
   *tas = (*ias) * sqrt(CONST_RHO0/rho);
 }

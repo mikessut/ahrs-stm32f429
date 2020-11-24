@@ -36,6 +36,7 @@ MSGS = {
     0x18D: {'name': 'CANFIX_TAS', 'disp': (13, 15+9), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
     0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2), 'unpack_func': lambda x: struct.unpack('i', x[3:])[0]},
     0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000},
+    0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100},
 }
 
 if __name__ == '__main__':
@@ -58,6 +59,7 @@ if __name__ == '__main__':
     screen.addstr(11, 0, 'Diff P')
 
     screen.addstr(13, 0, 'IAS, TAS, Alt')
+    screen.addstr(14, 0, 'OAT (SAT)')
 
     screen.addstr(15, 0, 'dt')
 

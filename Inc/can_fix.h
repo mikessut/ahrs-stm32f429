@@ -1,8 +1,8 @@
 /*
  * can_fix.h
  *
- *  Created on: Jul 17, 2019
- *      Author: Kyle
+ *  CANFIX specific values
+ *  
  */
 
 #ifndef CAN_FIX_H_
@@ -53,50 +53,48 @@
 #define CANFIX_FTIME          0x545
 
 // AHRS
-#define CANFIX_PITCH    0x180
-#define CANFIX_ROLL     0x181
-#define CANFIX_AOA      0x182
-#define CANFIX_IAS      0x183
-#define CANFIX_ALT      0x184
-#define CANFIX_HEAD     0x185
-#define CANFIX_VS       0x186
-#define CANFIX_YAW      0x189  // ?
-#define CANFIX_ACC      0x18A  // "gs ?"
-#define CANFIX_ALAT     0x18B
-#define CANFIX_ACC_LONG 0x18C
-#define CANFIX_TAS      0x18D
-#define CANFIX_CAS      0x18E
-#define CANFIX_MACH     0x18F
-#define CANFIX_ALT_SET  0x190
-#define CANFIX_PALT     0x191  // ?
+#define CANFIX_PITCH          0x180
+#define CANFIX_ROLL           0x181
+#define CANFIX_AOA            0x182
+#define CANFIX_IAS            0x183
+#define CANFIX_ALT            0x184
+#define CANFIX_HEAD           0x185
+#define CANFIX_VS             0x186
+#define CANFIX_YAW            0x189  // ?
+#define CANFIX_ACC            0x18A  // "gs ?"
+#define CANFIX_ALAT           0x18B
+#define CANFIX_ACC_LONG       0x18C
+#define CANFIX_TAS            0x18D
+#define CANFIX_CAS            0x18E
+#define CANFIX_MACH           0x18F
+#define CANFIX_ALT_SET        0x190
+#define CANFIX_PALT           0x191  // ?
 
 // Kalman Filter debug
-#define CAN_KF_WX      0x600
-#define CAN_KF_WY      0x601
-#define CAN_KF_WZ      0x602
-#define CAN_KF_WBX     0x603
-#define CAN_KF_WBY     0x604
-#define CAN_KF_WBZ     0x605
-#define CAN_KF_AX      0x606
-#define CAN_KF_AY      0x607
-#define CAN_KF_AZ      0x608
-#define CAN_KF_ABX     0x609
-#define CAN_KF_ABY     0x60A
-#define CAN_KF_ABZ     0x60B
-#define CAN_WX         0x60C
-#define CAN_WY         0x60D
-#define CAN_WZ         0x60E
-#define CAN_AX         0x60F
-#define CAN_AY         0x610
-#define CAN_AZ         0x611
-#define CAN_MAGX       0x612
-#define CAN_MAGY       0x613
-#define CAN_MAGZ       0x614
-#define CAN_PRESSA     0x615
-#define CAN_PRESSD     0x616
-#define CAN_DT         0x617
-
-
+#define CAN_KF_WX             0x600
+#define CAN_KF_WY             0x601
+#define CAN_KF_WZ             0x602
+#define CAN_KF_WBX            0x603
+#define CAN_KF_WBY            0x604
+#define CAN_KF_WBZ            0x605
+#define CAN_KF_AX             0x606
+#define CAN_KF_AY             0x607
+#define CAN_KF_AZ             0x608
+#define CAN_KF_ABX            0x609
+#define CAN_KF_ABY            0x60A
+#define CAN_KF_ABZ            0x60B
+#define CAN_WX                0x60C
+#define CAN_WY                0x60D
+#define CAN_WZ                0x60E
+#define CAN_AX                0x60F
+#define CAN_AY                0x610
+#define CAN_AZ                0x611
+#define CAN_MAGX              0x612
+#define CAN_MAGY              0x613
+#define CAN_MAGZ              0x614
+#define CAN_PRESSA            0x615
+#define CAN_PRESSD            0x616
+#define CAN_DT                0x617
 
 // CANFIX Status
 #define CANFIX_STATUS_CODE_ANNUC   0x1
@@ -104,6 +102,8 @@
 #define CANFIX_STATUS_CODE_FAILURE 0x4
 
 
+/* 
+// I think these are all deprecated
 typedef struct {
   uint16_t alarm_code;
   uint8_t data[6];
@@ -120,11 +120,6 @@ typedef struct {
   uint8_t control_code;
   uint8_t data[7];
 } node_specific_data;
-
-/* returns size of array if successfully created. Otherwise returns negative error code */
-// int32_t can_fix_construct_normal_data_msg(normal_data data, uint8_t *byte_stream, uint8_t size)
-// {
-//   return 0;
-// }
+*/
 
 #endif /* CAN_FIX_H_ */

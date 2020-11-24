@@ -68,8 +68,7 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c
 
 CPP_SOURCES = \
 Src/main.cpp \
-Src/kalman.cpp \
-Src/dcm.cpp
+Src/kalman.cpp 
 
 # ASM sources
 ASM_SOURCES =  \

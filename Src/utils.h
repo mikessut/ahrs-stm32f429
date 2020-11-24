@@ -32,7 +32,6 @@ void MX_I2C1_Init(void);
 
 void initialize_CAN();
 int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len);
-int send_can_fix_msg(uint32_t msg_id, normal_data *msg, int msglen); // maybe obsolete?
 int send_can_fix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen);
 int send_can_fix_msg(uint32_t msg_id, uint32_t);
 int send_can_fix_msg(uint32_t msg_id, int32_t);
@@ -43,7 +42,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude);
 // Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
 int send_can_msg(uint32_t msg_id, float *msg);
 
-int rx_canfix_msgs(float *baro);
+int rx_canfix_msgs(float *baro, float *temperature);
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
                 float *abs_press, float *abs_press_temp,
@@ -52,7 +51,7 @@ void uart_debug(Kalman *k, float *a, float *w, float *m,
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt, float *baro);                
+               float *dt, float *baro, float *temperature);                
 
 
 extern CAN_HandleTypeDef hcan1;
@@ -73,3 +72,12 @@ extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 extern UART_HandleTypeDef huart6;
 
+// Assumes a first order IIR with a0 = 1 and single a1 value
+typedef struct {
+  const float b[2] = {0.01546629, 0.01546629};
+  float x = 0;  // previous input
+  float y = 0;  // previous output
+  const float a = -0.96906742;
+} IIRFilterDef;
+
+float iir_filter(IIRFilterDef *filter, float y);
