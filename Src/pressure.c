@@ -9,9 +9,14 @@ extern I2C_HandleTypeDef hi2c1;
 extern SPI_HandleTypeDef hspi3;
 
 IIRFilterDef altitude_filter;
+IIRFilterDef vs_filter = {
+  0.00156833, 0.00156833, // b
+  0, 0, // x, y
+  -0.99686333 //a1
+};
 
 void airspeed_altitude(float abs_press, float diff_press, float alt_setting, float oat,
-                       float *altitude, float *ias, float *tas)
+                       float *altitude, float *ias, float *tas, float *vs)
 {
   float p_sealevel = alt_setting*CONV_INHG2PA;
   float h = -(pow(abs_press, CONST_L*CONST_R/CONST_g/CONST_M)
@@ -26,7 +31,11 @@ void airspeed_altitude(float abs_press, float diff_press, float alt_setting, flo
   //float new_alt = h * CONV_M2FT;
   //*altitude = 0.01546629 * alt_in_prev + 0.01546629*new_alt - (-0.96906742)*(*altitude);
   //alt_in_prev = new_alt;
-  *altitude = iir_filter(&altitude_filter, h * CONV_M2FT);
+
+  // For VS, use altitude filter's previous input differenced to current alitude
+  float alt_ft = h * CONV_M2FT;
+  *vs = iir_filter(&vs_filter, (alt_ft - altitude_filter.x) / 0.042 * 60.0);
+  *altitude = iir_filter(&altitude_filter, alt_ft);  
   *ias = sqrt(diff_press*2/CONST_RHO0)*CONV_MS2KNOTS;
   *tas = (*ias) * sqrt(CONST_RHO0/rho);
 }

@@ -19,7 +19,8 @@ import can
 import argparse
 import struct
 
-my_node_id = 0x71  # Have no idea what this should be...
+THIS_NODE_ID = 0x71  # Have no idea what this should be...
+CANFIX_NODE_MSGS_OFFSET = 0x6E0
 
 PARAMS = {
     'BARO': {'id': 0x190, 'struct_pack': lambda x: struct.pack('H', int(float(x)*1000))},
@@ -48,22 +49,22 @@ if __name__ == '__main__':
                bytearray(struct.pack('H', PARAMS[args.param]['id'])) + \
                bytearray(PARAMS[args.param]['struct_pack'](args.val))
 
-        msg = can.Message(arbitration_id=my_node_id + 1792, 
+        msg = can.Message(arbitration_id=THIS_NODE_ID + CANFIX_NODE_MSGS_OFFSET, 
                         data=data, is_extended_id=False)
     elif args.cfg:
         data = bytearray([9, args.dest, PARAMS[args.param]['byte2']]) + \
                bytearray(PARAMS[args.param]['struct_pack'](args.val))
 
-        msg = can.Message(arbitration_id=my_node_id + 1792, 
+        msg = can.Message(arbitration_id=THIS_NODE_ID + CANFIX_NODE_MSGS_OFFSET, 
                         data=data, is_extended_id=False)
     elif args.qry:
         data = bytearray([10, args.dest, PARAMS[args.param]['byte2']])
 
-        msg = can.Message(arbitration_id=my_node_id + 1792, 
+        msg = can.Message(arbitration_id=THIS_NODE_ID + CANFIX_NODE_MSGS_OFFSET, 
                         data=data, is_extended_id=False)
     else:
         # normal message
-        data = bytearray([my_node_id, 0, 0]) + bytearray(PARAMS[args.param]['struct_pack'](args.val))
+        data = bytearray([THIS_NODE_ID, 0, 0]) + bytearray(PARAMS[args.param]['struct_pack'](args.val))
         msg = can.Message(arbitration_id=PARAMS[args.param]['id'], 
                            data=data, is_extended_id=False)
 
@@ -74,7 +75,7 @@ if __name__ == '__main__':
         print("Waiting for response to query...")
         while True:
             msg = bus.recv()
-            if (msg.arbitration_id == (args.dest + 1792)) and (msg.data[1] == my_node_id):
+            if (msg.arbitration_id == (args.dest + CANFIX_NODE_MSGS_OFFSET)) and (msg.data[1] == THIS_NODE_ID):
                 print(msg)
                 print(PARAMS[args.param]['struct_unpack'](msg.data[3:]))
                 break

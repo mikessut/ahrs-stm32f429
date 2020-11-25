@@ -37,7 +37,7 @@ int send_can_fix_msg(uint32_t msg_id, uint32_t);
 int send_can_fix_msg(uint32_t msg_id, int32_t);
 int send_can_fix_msg(uint32_t msg_id, uint16_t);
 int send_can_fix_msg(uint32_t msg_id, int16_t msg); 
-int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude);
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs);
 
 // Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
 int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
@@ -74,10 +74,10 @@ extern UART_HandleTypeDef huart6;
 
 // Assumes a first order IIR with a0 = 1 and single a1 value
 typedef struct {
-  const float b[2] = {0.01546629, 0.01546629};
+  float b[2] = {0.01546629, 0.01546629};
   float x = 0;  // previous input
   float y = 0;  // previous output
-  const float a = -0.96906742;
+  float a = -0.96906742;
 } IIRFilterDef;
 
 float iir_filter(IIRFilterDef *filter, float y);

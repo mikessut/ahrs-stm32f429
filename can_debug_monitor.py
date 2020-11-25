@@ -3,6 +3,8 @@ import can
 import canfix
 import curses
 import struct
+import argparse
+import datetime
 
 MSGS = {
     0x600: {'name': 'CAN_KF_WX', 'disp': (1, 15    )},      
@@ -37,10 +39,18 @@ MSGS = {
     0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2), 'unpack_func': lambda x: struct.unpack('i', x[3:])[0]},
     0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000},
     0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100},
+    0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]},
 }
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-fn', help='Log filename', default=f"{datetime.datetime.now().strftime('%y%m%d%H%M')}_{{}}.log")
+    parser.add_argument('-l', '--log', nargs='+', type=lambda x: x.upper())    
+    args = parser.parse_args()
 
+    if args.log is not None:
+        logs = {x: open(args.fn.format(x), 'w') for x in args.log}
+    
     bus = can.interface.Bus('vcan0', bustype='socketcan')
 
     screen = curses.initscr()
@@ -58,7 +68,7 @@ if __name__ == '__main__':
     screen.addstr(10, 0, 'Abs P')
     screen.addstr(11, 0, 'Diff P')
 
-    screen.addstr(13, 0, 'IAS, TAS, Alt')
+    screen.addstr(13, 0, 'IAS, TAS, Alt, VS')
     screen.addstr(14, 0, 'OAT (SAT)')
 
     screen.addstr(15, 0, 'dt')
@@ -75,11 +85,15 @@ if __name__ == '__main__':
             v = MSGS[msg.arbitration_id]
             if 'unpack_func' in v:
                 try: 
-                    screen.addstr(*v['disp'], f"{v['unpack_func'](msg.data):9.3f}")
+                    val = v['unpack_func'](msg.data)
                 except struct.error:
                     print(f"Trying to unpack {v}. {msg.data}")
             else:
-                screen.addstr(*v['disp'], f"{struct.unpack('f', msg.data)[0]:9.3f}")
+                val = struct.unpack('f', msg.data)[0]
+            screen.addstr(*v['disp'], f"{val:9.3f}")
+
+            if (args.log is not None) and (v['name'] in logs):
+                logs[v['name']].write(f"{msg.timestamp} {val}\n")
                 
 
         screen.refresh()
@@ -87,3 +101,7 @@ if __name__ == '__main__':
         if c != -1:
             curses.endwin()
             run_bool = False
+
+    if args.log is not None:
+        for l in logs:
+            l.close()

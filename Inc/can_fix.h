@@ -9,6 +9,10 @@
 #define CAN_FIX_H_
 
 #define CANFIX_NODE_ID        0x12
+
+// Message id at which node specific messages begin. See spec for details. 
+// Message id is determined from sender's node id + this offset.
+#define CANFIX_NODE_MSGS_OFFSET   0x6E0
     
 #define CANFIX_TACH           0x200
 #define CANFIX_PROP           0x202

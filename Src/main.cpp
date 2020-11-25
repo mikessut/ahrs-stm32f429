@@ -60,7 +60,7 @@ int main(void)
   float abs_press, diff_press; // Pascal
   float abs_press_temp, diff_press_temp;
   float tas = 0;
-  float ias, altitude;
+  float ias, altitude, vs;
   Kalman k;
   float w[3];
   float a[3];
@@ -202,13 +202,14 @@ int main(void)
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
     //dt = (HAL_GetTick() - tick_ctr)*1e-3;
     dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20
+    tick_ctr = HAL_GetTick();
     k.predict(.044, tas*K2ms);
     //k.update_accel(Vector3f(ax, ay, az));
     k.update_accel(Vector3f(Map<Vector3f>(a)));
     k.update_gyro(Vector3f(Map<Vector3f>(w)));
-    //k.update_mag(Vector3f(mag_x, mag_y, mag_z));
-    k.update_mag(Vector3f(20, 0, 50));
-    tick_ctr = HAL_GetTick();
+    k.update_mag(Vector3f(Map<Vector3f>(m)));
+    //k.update_mag(Vector3f(20, 0, 50)); // always headed north
+    
     
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
@@ -235,10 +236,10 @@ int main(void)
 
     // air data computations
     airspeed_altitude(abs_press, diff_press, baro, temperature,
-                      &altitude, &ias, &tas);
+                      &altitude, &ias, &tas, &vs);
 
     #ifdef SEND_CANFIX_MSGS
-    send_canfix_msgs(&k, &ias, &tas, &altitude);
+    send_canfix_msgs(&k, &ias, &tas, &altitude, &vs);
     #endif
 
     //HAL_Delay(150);

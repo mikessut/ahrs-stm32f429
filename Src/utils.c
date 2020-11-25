@@ -30,7 +30,7 @@ float iir_filter(IIRFilterDef *filter, float x)
   return result;
 }
 
-int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs) {
   
     send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
@@ -38,6 +38,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude) {
     send_can_fix_msg(CANFIX_IAS, (uint16_t)(*ias * 10.0));
     send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
+    send_can_fix_msg(CANFIX_VS, (int16_t)(*vs));
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
@@ -190,7 +191,7 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron) {
   if (CAN_rx(&id, data, &len)) {
     // sprintf((char*)buffer, "CAN rcvd: id: %d\r\n", id);
     // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    if ((id >= 1792) && (id <= 2047)) {
+    if ((id >= CANFIX_NODE_MSGS_OFFSET) && (id <= 2047)) {
       // Node specific message data 
       // Byte
       // 0: Control code
@@ -208,14 +209,14 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron) {
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_SET) && (data[1] == CANFIX_NODE_ID)) {
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 7)) {
           hard_iron[data[2] - CANFIX_CFG_KEY_HARDIRON_X] = *((float*)(&data[3]));
-          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-1792), 0};
-          send_can_msg(1792 + CANFIX_NODE_ID, reply, 3);
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         }       
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 3)) {
-          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-1792), 0, 0, 0, 0, 0};
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
           *((float*)(&reply[3])) = hard_iron[data[2]];
-          send_can_msg(1792 + CANFIX_NODE_ID, reply, 7);
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         }
       } 
     } else if (id == CANFIX_SAT) {

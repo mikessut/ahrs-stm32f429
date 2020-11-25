@@ -16,7 +16,7 @@
 #define CONV_PSI2PASCAL 6894.76
 
 void airspeed_altitude(float abs_press, float diff_press, float alt_setting, float oat,
-                       float *altitude, float *ias, float *tas);
+                       float *altitude, float *ias, float *tas, float *vs);
 
 int abs_pressure(float *pres, float *temp);   
 int diff_pressure(float *diff_press, float *diff_press_temp);                    
