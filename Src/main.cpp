@@ -231,7 +231,7 @@ int main(void)
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro, &temperature, hard_iron);
+    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset);
     #endif
 
     // air data computations
@@ -239,7 +239,7 @@ int main(void)
                       &altitude, &ias, &tas, &vs);
 
     #ifdef SEND_CANFIX_MSGS
-    send_canfix_msgs(&k, &ias, &tas, &altitude, &vs);
+    send_canfix_msgs(&k, &ias, &tas, &altitude, &vs, &a[1]);
     #endif
 
     //HAL_Delay(150);

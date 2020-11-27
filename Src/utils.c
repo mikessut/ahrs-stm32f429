@@ -30,7 +30,7 @@ float iir_filter(IIRFilterDef *filter, float x)
   return result;
 }
 
-int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs) {
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs, float *ay) {
   
     send_can_fix_msg(CANFIX_ROLL, (int16_t)(k->roll()*180.0/M_PI * 100.0));
     send_can_fix_msg(CANFIX_PITCH, (int16_t)(k->pitch()*180.0/M_PI * 100.0));
@@ -39,6 +39,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
     send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
     send_can_fix_msg(CANFIX_VS, (int16_t)(*vs));
+    send_can_fix_msg(CANFIX_ACLAT, (int16_t)(((*ay) / G) * 1000.0));
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
@@ -184,7 +185,8 @@ int send_can_msg(uint32_t msg_id, uint8_t *msg, int len)
   return 0;
 }
 
-int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron) {
+int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
+                   int32_t *wb, int32_t *ab) {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
@@ -207,15 +209,36 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron) {
           *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
         }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_SET) && (data[1] == CANFIX_NODE_ID)) {
+        // Configure messages
+        // Packet format: DATA
+        // ID                0             1     2            3...
+        // sending+1760   0x09   Destination   Key   Key specific data fmt
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 7)) {
           hard_iron[data[2] - CANFIX_CFG_KEY_HARDIRON_X] = *((float*)(&data[3]));
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
-        }       
+        } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 7)) {
+          wb[data[2] - CANFIX_CFG_KEY_W_X] = *((int32_t*)(&data[3]));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 7)) {
+          ab[data[2] - CANFIX_CFG_KEY_A_X] = *((int32_t*)(&data[3]));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
+        // Configure query messages
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 3)) {
           uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
-          *((float*)(&reply[3])) = hard_iron[data[2]];
+          *((float*)(&reply[3])) = hard_iron[data[2] - CANFIX_CFG_KEY_HARDIRON_X];
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
+        } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 3)) {
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
+          *((int32_t*)(&reply[3])) = wb[data[2] - CANFIX_CFG_KEY_W_X];
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
+        } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 3)) {
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
+          *((int32_t*)(&reply[3])) = ab[data[2] - CANFIX_CFG_KEY_A_X];
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         }
       } 

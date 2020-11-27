@@ -65,9 +65,9 @@
 #define CANFIX_HEAD           0x185
 #define CANFIX_VS             0x186
 #define CANFIX_YAW            0x189  // ?
-#define CANFIX_ACC            0x18A  // "gs ?"
-#define CANFIX_ALAT           0x18B
-#define CANFIX_ACC_LONG       0x18C
+#define CANFIX_ACNOR          0x18A  // "gs ?"
+#define CANFIX_ACLAT          0x18B
+#define CANFIX_ACLONG         0x18C
 #define CANFIX_TAS            0x18D
 #define CANFIX_CAS            0x18E
 #define CANFIX_MACH           0x18F
@@ -122,9 +122,18 @@
 #define CANFIX_CONTROLCODE_PARAM_SET_MAX  19
 
 // Control code CFG_SET/QRY key values
+// Mag hard iron offsets.  Represented as float  in uT (after sensor scaling)
 #define CANFIX_CFG_KEY_HARDIRON_X   0
 #define CANFIX_CFG_KEY_HARDIRON_Y   1
 #define CANFIX_CFG_KEY_HARDIRON_Z   2
+// Raw gyro/accel offset represented as int32 before SF applied.
+#define CANFIX_CFG_KEY_W_X          3
+#define CANFIX_CFG_KEY_W_Y          4
+#define CANFIX_CFG_KEY_W_Z          5
+#define CANFIX_CFG_KEY_A_X          6
+#define CANFIX_CFG_KEY_A_Y          7
+#define CANFIX_CFG_KEY_A_Z          8
+
 
 
 #endif /* CAN_FIX_H_ */

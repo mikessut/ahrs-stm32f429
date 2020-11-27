@@ -37,12 +37,13 @@ int send_can_fix_msg(uint32_t msg_id, uint32_t);
 int send_can_fix_msg(uint32_t msg_id, int32_t);
 int send_can_fix_msg(uint32_t msg_id, uint16_t);
 int send_can_fix_msg(uint32_t msg_id, int16_t msg); 
-int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs);
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs, float *ay);
 
 // Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
 int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
 
-int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron);
+int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
+                   int32_t *wb, int32_t *ab);
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
                 float *abs_press, float *abs_press_temp,

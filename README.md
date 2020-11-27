@@ -35,3 +35,7 @@ Run gateway from: `~/FIX-Gateway`.
    `fixgw.py` is gateway server (seems to need restart when AHRS board is restarted?)
    `fixgwc.py` is client
 pyEfis.py is run from: `~/pyEfis`
+
+Or, after switching to candlelight FW
+
+`ip link set can0 up type can bitrate 125000`
