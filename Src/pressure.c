@@ -74,6 +74,6 @@ int diff_pressure(float *diff_press, float *diff_press_temp) {
     // +/- 100mbar
     //
     uint16_t bridge_data = ((diff_press_data[0] & 0x3F) << 8) + diff_press_data[1];
-    *diff_press = ((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0;
+    *diff_press = (((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0) * CONV_MBAR2PA;
     *diff_press_temp = (float)((diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
 }

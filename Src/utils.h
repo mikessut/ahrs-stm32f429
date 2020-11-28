@@ -43,7 +43,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
 int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
 
 int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   int32_t *wb, int32_t *ab);
+                   int32_t *wb, int32_t *ab, float *q);
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
                 float *abs_press, float *abs_press_temp,
@@ -82,3 +82,5 @@ typedef struct {
 } IIRFilterDef;
 
 float iir_filter(IIRFilterDef *filter, float y);
+
+void rotate_sensors(float *q, float *a, float *w, float *m);

@@ -14,6 +14,7 @@
 #define CONV_FT2M       (1.0/3.28084)
 #define CONV_M2FT       3.28084
 #define CONV_PSI2PASCAL 6894.76
+#define CONV_MBAR2PA    100
 
 void airspeed_altitude(float abs_press, float diff_press, float alt_setting, float oat,
                        float *altitude, float *ias, float *tas, float *vs);

@@ -70,6 +70,8 @@ int main(void)
   int32_t w_offset[3] = {0, 0, 0};
   int32_t a_offset[3] = {0, 0, 0};
   int32_t mag_init[3] = {0, 0, 0};
+  // Quaternion rotation from sensor frame to body frame
+  float q[4] = {1.0, 0, 0, 0};
   
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -118,26 +120,6 @@ int main(void)
 
   HAL_Delay(1500);
 
-  // Blink test
-  //while(1) {
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-  //  HAL_Delay(2);
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-  //  HAL_Delay(2);
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-  //  k.predict(.038);
-  //  k.update_accel(Vector3f(.1, .2, .3));
-  //  k.update_gyro(Vector3f(.4, .5, .6));
-  //  k.update_mag(Vector3f(.7,.8, .9));
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-  //  HAL_Delay(2);
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-  //  HAL_Delay(2);
-  //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-  //  HAL_Delay(50);
-  //  
-  //}
-
   while (1)
   {
     int16_t gyro[3];
@@ -164,7 +146,7 @@ int main(void)
     if (init_ctr < NUM_INIT) {
       for (int i=0; i < 3; i ++) {
         w_offset[i] += gyro[i];
-        a_offset[i] += accel[i];
+        //a_offset[i] += accel[i];
         mag_init[i] += mag[i];
       }
 
@@ -179,19 +161,21 @@ int main(void)
       }
       init_ctr++;
     }
-    
-    // Rotate sensors to z axis down
+
+    // Rotate sensors to z axis down and apply offsets
     a[0] = (float) (accel[0] - a_offset[0])*ACCEL_SF;
     a[1] = (float)-(accel[1] - a_offset[1])*ACCEL_SF;
-    a[2] = (float)-(accel[2])*ACCEL_SF;
+    a[2] = (float)-(accel[2] - a_offset[2])*ACCEL_SF;
 
-    w[0] = (float)(gyro[0] -  w_offset[0])*GYRO_SF;
+    w[0] = (float) (gyro[0] - w_offset[0])*GYRO_SF;
     w[1] = (float)-(gyro[1] - w_offset[1])*GYRO_SF;
     w[2] = (float)-(gyro[2] - w_offset[2])*GYRO_SF;
 
-    m[0] = (float)mag[0]*MAG_SF;
+    m[0] = (float) mag[0]*MAG_SF;
     m[1] = (float)-mag[1]*MAG_SF;
-    m[2] = (float)-mag[2]*MAG_SF;
+    m[2] = (float)-mag[2]*MAG_SF;    
+
+    rotate_sensors(q, a, w, m);
 
     // apply hard iron compensation
     for (int i=0; i < 3; i++)
@@ -231,7 +215,7 @@ int main(void)
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset);
+    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset, q);
     #endif
 
     // air data computations

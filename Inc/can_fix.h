@@ -133,6 +133,10 @@
 #define CANFIX_CFG_KEY_A_X          6
 #define CANFIX_CFG_KEY_A_Y          7
 #define CANFIX_CFG_KEY_A_Z          8
+#define CANFIX_CFG_KEY_Q0           9
+#define CANFIX_CFG_KEY_Q1           10
+#define CANFIX_CFG_KEY_Q2           11
+#define CANFIX_CFG_KEY_Q3           12
 
 
 

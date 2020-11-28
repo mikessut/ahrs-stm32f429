@@ -186,7 +186,7 @@ int send_can_msg(uint32_t msg_id, uint8_t *msg, int len)
 }
 
 int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   int32_t *wb, int32_t *ab) {
+                   int32_t *wb, int32_t *ab, float *q) {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
@@ -225,6 +225,10 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
           ab[data[2] - CANFIX_CFG_KEY_A_X] = *((int32_t*)(&data[3]));
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 7)) {
+          q[data[2] - CANFIX_CFG_KEY_Q0] = *((float*)(&data[3]));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
         // Configure query messages
@@ -240,6 +244,10 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
           uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
           *((int32_t*)(&reply[3])) = ab[data[2] - CANFIX_CFG_KEY_A_X];
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
+        } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 3)) {
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
+          *((float*)(&reply[3])) = q[data[2] - CANFIX_CFG_KEY_Q0];
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         }
       } 
     } else if (id == CANFIX_SAT) {
@@ -251,7 +259,8 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
 
 /* Return 1 if message received */
 // Passed data buffer has to be large enough for CAN message.
-int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len) {
+int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len) 
+{
   uint32_t nfifo = HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0);
 
   if (nfifo > 0) {
@@ -282,6 +291,20 @@ int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len) {
   } else {
     return 0;
   }
+}
+
+void rotate_sensor(Quaternion<float> q, float *sensor)
+{
+  Vector3f tmp = (q.inverse() * Quaternion<float>(0, sensor[0], sensor[1], sensor[2]) * q).vec();
+  memcpy(sensor, tmp.data(), sizeof(float)*3);
+}
+
+void rotate_sensors(float *q, float *a, float *w, float *m)
+{
+  Quaternion<float> qr(q[0], q[1], q[2], q[3]);
+  rotate_sensor(qr, a);
+  rotate_sensor(qr, w);
+  rotate_sensor(qr, m);
 }
 
 void initialize_CAN()

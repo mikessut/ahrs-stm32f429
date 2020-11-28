@@ -1,0 +1,10 @@
+# Hard iron as float
+HARD_IRONX: 0
+HARD_IRONY: 0
+HARD_IRONZ: 0
+
+# Orientation quaternion as float
+Q0: 1.0
+Q1: 0.0
+Q2: 0.0
+Q3: 0.0
