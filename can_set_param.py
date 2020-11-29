@@ -124,6 +124,7 @@ if __name__ == '__main__':
 
         msg = can.Message(arbitration_id=THIS_NODE_ID + CANFIX_NODE_MSGS_OFFSET, 
                         data=data, is_extended_id=False)
+        bus.send(msg)
     elif args.cfg:
         msg = set_cfg_param(args.dest, PARAMS[args.param]['byte2'], args.val, PARAMS[args.param]['struct_pack'])
         bus.send(msg)

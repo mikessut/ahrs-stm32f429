@@ -53,7 +53,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.log is not None:
-        logs = {x: open(args.fn.format(x), 'w') for x in args.log}
+        logs = {x: open(os.path.join('logs', args.fn.format(x)), 'w') for x in args.log}
     elif args.log_all:
         logs = {msg_id: open(os.path.join('logs', args.fn.format(v['name'])), 'w') for msg_id, v in MSGS.items()}
     
