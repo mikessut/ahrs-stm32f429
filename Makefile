@@ -209,6 +209,18 @@ $(BUILD_DIR):
 	mkdir $@
 
 #######################################
+# Compile Kalman cpp code to run through python. (This doesn't
+# run on STM32. Only for debugging on build machine.)
+#######################################
+
+build/kalman_pic.o: Src/kalman.cpp
+	g++ $(CPPFLAGS) -I$(EIGEN_INCLUDE_DIR) -c -fpic Src/kalman.cpp -o build/kalman_pic.o
+
+python: build/kalman_pic.o
+	g++ $(CPPFLAGS) -ISrc -I$(EIGEN_INCLUDE_DIR) -c -fpic kalman_python_wrapper.cpp -o build/kalman_python_wrapper.o
+	g++ -shared -o build/libkalman.so build/kalman_python_wrapper.o build/kalman_pic.o
+
+#######################################
 # clean up
 #######################################
 clean:

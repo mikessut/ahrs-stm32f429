@@ -22,9 +22,11 @@ UART_HandleTypeDef huart6;
 
 extern uint8_t buffer[200];
 
+extern float dpress_offset;
+
 float iir_filter(IIRFilterDef *filter, float x)
 {
-  float result = filter->b[0] * x + filter->b[1] * filter->x - filter->a*filter->y;
+  float result = (filter->b[0]) * x + (filter->b[1]) * (filter->x) - (filter->a)*(filter->y);
   filter->x = x;
   filter->y = result;
   return result;
@@ -39,7 +41,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
     send_can_fix_msg(CANFIX_TAS, (uint16_t)(*tas * 10.0));
     send_can_fix_msg(CANFIX_ALT, (int32_t)(*altitude));
     send_can_fix_msg(CANFIX_VS, (int16_t)(*vs));
-    send_can_fix_msg(CANFIX_ACLAT, (int16_t)(((*ay) / G) * 1000.0));
+    send_can_fix_msg(CANFIX_ACLAT, (int16_t)(((k->x(I_AY)) / G) * 1000.0));
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
@@ -186,7 +188,7 @@ int send_can_msg(uint32_t msg_id, uint8_t *msg, int len)
 }
 
 int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   int32_t *wb, int32_t *ab, float *q) {
+                   float *wb, float *ab, float *q, uint8_t *status) {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
@@ -218,15 +220,23 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 7)) {
-          wb[data[2] - CANFIX_CFG_KEY_W_X] = *((int32_t*)(&data[3]));
+          wb[data[2] - CANFIX_CFG_KEY_W_X] = *((float*)(&data[3]));
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 7)) {
-          ab[data[2] - CANFIX_CFG_KEY_A_X] = *((int32_t*)(&data[3]));
+          ab[data[2] - CANFIX_CFG_KEY_A_X] = *((float*)(&data[3]));
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 7)) {
           q[data[2] - CANFIX_CFG_KEY_Q0] = *((float*)(&data[3]));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 4)) {
+          *status = data[3];
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        } else if ((data[2] >= CANFIX_CFG_KEY_DPRESS) && (len == 7)) {
+          dpress_offset = *((float*)(&data[3]));
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         }
@@ -238,15 +248,23 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 3)) {
           uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
-          *((int32_t*)(&reply[3])) = wb[data[2] - CANFIX_CFG_KEY_W_X];
+          *((float*)(&reply[3])) = wb[data[2] - CANFIX_CFG_KEY_W_X];
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 3)) {
           uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
-          *((int32_t*)(&reply[3])) = ab[data[2] - CANFIX_CFG_KEY_A_X];
+          *((float*)(&reply[3])) = ab[data[2] - CANFIX_CFG_KEY_A_X];
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 3)) {
           uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
           *((float*)(&reply[3])) = q[data[2] - CANFIX_CFG_KEY_Q0];
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
+        } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 3)) {
+          uint8_t reply[4] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0};
+          reply[3] = *status;
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 4);
+        } else if ((data[2] >= CANFIX_CFG_KEY_DPRESS) && (len == 3)) {
+          uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0, 0, 0, 0, 0};
+          *((float*)(&reply[3])) = dpress_offset;
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
         }
       } 

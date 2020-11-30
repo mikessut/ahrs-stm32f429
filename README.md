@@ -38,4 +38,12 @@ pyEfis.py is run from: `~/pyEfis`
 
 Or, after switching to candlelight FW
 
-`ip link set can0 up type can bitrate 125000`
+`sudo ip link set can0 up type can bitrate 125000`
+
+If performaing debuging and want a virtual can driver
+
+```
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+```

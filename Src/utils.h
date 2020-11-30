@@ -43,7 +43,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
 int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
 
 int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   int32_t *wb, int32_t *ab, float *q);
+                   float *wb, float *ab, float *q, uint8_t *status);
 
 void uart_debug(Kalman *k, float *a, float *w, float *m, 
                 float *abs_press, float *abs_press_temp,
@@ -76,8 +76,8 @@ extern UART_HandleTypeDef huart6;
 // Assumes a first order IIR with a0 = 1 and single a1 value
 typedef struct {
   float b[2] = {0.01546629, 0.01546629};
-  float x = 0;  // previous input
-  float y = 0;  // previous output
+  float x = 0.0;  // previous input
+  float y = 0.0;  // previous output
   float a = -0.96906742;
 } IIRFilterDef;
 

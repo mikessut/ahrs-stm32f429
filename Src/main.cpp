@@ -67,11 +67,14 @@ int main(void)
   float m[3];
   float hard_iron[3] = {0, 0, 0};
   int init_ctr = 0;
-  int32_t w_offset[3] = {0, 0, 0};
-  int32_t a_offset[3] = {0, 0, 0};
-  int32_t mag_init[3] = {0, 0, 0};
+  float w_offset[3] = {0, 0, 0};
+  float a_offset[3] = {0, 0, 0};
+  float mag_init[3] = {0, 0, 0};
   // Quaternion rotation from sensor frame to body frame
   float q[4] = {1.0, 0, 0, 0};
+  // Bit
+  // 0:  mag update
+  uint8_t status = 0x01;
   
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -141,16 +144,34 @@ int main(void)
     lsm6ds33_read_gyro_z(&gyro[2]);
     lis3mdl_read_mag_x(&mag[0]);
     lis3mdl_read_mag_y(&mag[1]);
-    lis3mdl_read_mag_z(&mag[2]);    
+    lis3mdl_read_mag_z(&mag[2]);   
+
+    // Rotate sensors to z axis down 
+    a[0] = (float) accel[0]*ACCEL_SF;
+    a[1] = (float)-accel[1]*ACCEL_SF;
+    a[2] = (float)-accel[2]*ACCEL_SF;
+
+    w[0] = (float) gyro[0]*GYRO_SF;
+    w[1] = (float)-gyro[1]*GYRO_SF;
+    w[2] = (float)-gyro[2]*GYRO_SF;
+
+    m[0] = (float) mag[0]*MAG_SF;
+    m[1] = (float)-mag[1]*MAG_SF;
+    m[2] = (float)-mag[2]*MAG_SF;    
+
+    rotate_sensors(q, a, w, m); 
 
     if (init_ctr < NUM_INIT) {
       for (int i=0; i < 3; i ++) {
-        w_offset[i] += gyro[i];
-        //a_offset[i] += accel[i];
-        mag_init[i] += mag[i];
+        w_offset[i] += w[i];
+        mag_init[i] += m[i];
       }
+      for (int i=0; i < 2; i++) 
+        a_offset[i] += a[i];
+      a_offset[2] += a[2] + G;
 
       init_ctr++;
+      HAL_Delay(10);
       continue;
     } else if (init_ctr == NUM_INIT) {
       //k.init_mag(Matrix<float, 3, 1>(mag_init_x/NUM_INIT, mag_init_y/NUM_INIT, mag_init_z/NUM_INIT));
@@ -162,20 +183,11 @@ int main(void)
       init_ctr++;
     }
 
-    // Rotate sensors to z axis down and apply offsets
-    a[0] = (float) (accel[0] - a_offset[0])*ACCEL_SF;
-    a[1] = (float)-(accel[1] - a_offset[1])*ACCEL_SF;
-    a[2] = (float)-(accel[2] - a_offset[2])*ACCEL_SF;
-
-    w[0] = (float) (gyro[0] - w_offset[0])*GYRO_SF;
-    w[1] = (float)-(gyro[1] - w_offset[1])*GYRO_SF;
-    w[2] = (float)-(gyro[2] - w_offset[2])*GYRO_SF;
-
-    m[0] = (float) mag[0]*MAG_SF;
-    m[1] = (float)-mag[1]*MAG_SF;
-    m[2] = (float)-mag[2]*MAG_SF;    
-
-    rotate_sensors(q, a, w, m);
+    // apply offsets (caution: this is in rotated frame)
+    for (int i=0; i < 3; i++) {
+      a[i] -= a_offset[i];
+      w[i] -= w_offset[i];
+    }
 
     // apply hard iron compensation
     for (int i=0; i < 3; i++)
@@ -187,11 +199,12 @@ int main(void)
     //dt = (HAL_GetTick() - tick_ctr)*1e-3;
     dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20
     tick_ctr = HAL_GetTick();
-    k.predict(.044, tas*K2ms);
+    k.predict(.027, tas*K2ms);
     //k.update_accel(Vector3f(ax, ay, az));
     k.update_accel(Vector3f(Map<Vector3f>(a)));
     k.update_gyro(Vector3f(Map<Vector3f>(w)));
-    k.update_mag(Vector3f(Map<Vector3f>(m)));
+    if (status & 0x01)
+      k.update_mag(Vector3f(Map<Vector3f>(m)));
     //k.update_mag(Vector3f(20, 0, 50)); // always headed north
     
     
@@ -215,7 +228,7 @@ int main(void)
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset, q);
+    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset, q, &status);
     #endif
 
     // air data computations

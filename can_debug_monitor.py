@@ -34,22 +34,32 @@ MSGS = {
     0x615: {'name': 'CAN_PRESSA', 'disp': (10, 15)},     
     0x616: {'name': 'CAN_PRESSD', 'disp': (11, 15)},     
     0x617: {'name': 'CAN_DT', 'disp': (15, 15)},  
-    0x180: {'name': 'CANFIX_PITCH', 'disp': (17, 15+9), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
-    0x181: {'name': 'CANFIX_ROLL', 'disp':  (17, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100},
-    0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
-    0x183: {'name': 'CANFIX_IAS', 'disp': (13, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
-    0x18D: {'name': 'CANFIX_TAS', 'disp': (13, 15+9), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10},
-    0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2), 'unpack_func': lambda x: struct.unpack('i', x[3:])[0]},
-    0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000},
-    0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100},
-    0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3), 'unpack_func': lambda x: struct.unpack('h', x[3:])[0]},
+    0x618: {'name': 'CAN_HEAD_VEC_X', 'disp': (9, 15)},  
+    0x619: {'name': 'CAN_HEAD_VEC_Y', 'disp': (9, 15+9)},  
+    0x180: {'name': 'CANFIX_PITCH', 'disp': (17, 15+9),   'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100,    'pack_func': lambda x: struct.pack('h', int(x*100))},
+    0x181: {'name': 'CANFIX_ROLL', 'disp':  (17, 15),     'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100,    'pack_func': lambda x: struct.pack('h', int(x*100))},
+    0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('H', int(x*10))},
+    0x183: {'name': 'CANFIX_IAS', 'disp': (13, 15),       'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('H', int(x*10))},
+    0x18D: {'name': 'CANFIX_TAS', 'disp': (13, 15+9),     'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('H', int(x*10))},
+    0x184: {'name': 'CANFIX_ALT', 'disp': (13, 15+9*2),   'unpack_func': lambda x: struct.unpack('i', x[3:])[0],        'pack_func': lambda x: struct.pack('i', int(x))},
+    0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15),   'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000, 'pack_func': lambda x: struct.pack('H', int(x*1000))},
+    0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15),       'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100,  'pack_func': lambda x: struct.pack('h', int(x*100))},
+    0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3),    'unpack_func': lambda x: struct.unpack('h', x[3:])[0],        'pack_func': lambda x: struct.pack('h', int(x))},
 }
+
+
+def pos_heading(head_rad):
+    if head_rad < 0:
+        return pos_heading(head_rad + np.pi*2)
+    return head_rad*180/np.pi
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fn', help='Log filename', default=f"{datetime.datetime.now().strftime('%y%m%d%H%M')}_{{}}.log")
     parser.add_argument('-l', '--log', nargs='+', type=lambda x: x.upper())    
     parser.add_argument('-la', '--log-all', default=False, action='store_true')
+    parser.add_argument('--can-bus', default='can0')
     args = parser.parse_args()
 
     if args.log is not None:
@@ -57,7 +67,7 @@ if __name__ == '__main__':
     elif args.log_all:
         logs = {msg_id: open(os.path.join('logs', args.fn.format(v['name'])), 'w') for msg_id, v in MSGS.items()}
     
-    bus = can.interface.Bus('can0', bustype='socketcan')
+    bus = can.interface.Bus(args.can_bus, bustype='socketcan')
 
     screen = curses.initscr()
     screen.nodelay(True)
@@ -83,6 +93,8 @@ if __name__ == '__main__':
 
     run_bool = True
 
+    head_vec = [None, None]
+
     while run_bool:
 
         msg = bus.recv()
@@ -104,6 +116,13 @@ if __name__ == '__main__':
 
             if args.log_all and msg.arbitration_id in logs.keys():
                 logs[msg.arbitration_id].write(f"{msg.timestamp} {val}\n")
+
+            if v['name'] == 'CAN_HEAD_VEC_X':
+                head_vec[0] = val
+            elif v['name'] == 'CAN_HEAD_VEC_Y':
+                head_vec[1] = val
+            if all(head_vec):
+                screen.addstr(9, 15+9*2+3, f"{pos_heading(np.arctan2(head_vec[1], head_vec[0])):.1f}")
                 
 
         screen.refresh()

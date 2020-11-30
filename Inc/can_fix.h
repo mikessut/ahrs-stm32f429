@@ -99,6 +99,8 @@
 #define CAN_PRESSA            0x615
 #define CAN_PRESSD            0x616
 #define CAN_DT                0x617
+#define CAN_HEAD_VEC_X        0x618
+#define CAN_HEAD_VEC_Y        0x619
 
 // CANFIX Status
 #define CANFIX_STATUS_CODE_ANNUC   0x1
@@ -126,17 +128,18 @@
 #define CANFIX_CFG_KEY_HARDIRON_X   0
 #define CANFIX_CFG_KEY_HARDIRON_Y   1
 #define CANFIX_CFG_KEY_HARDIRON_Z   2
-// Raw gyro/accel offset represented as int32 before SF applied.
 #define CANFIX_CFG_KEY_W_X          3
 #define CANFIX_CFG_KEY_W_Y          4
 #define CANFIX_CFG_KEY_W_Z          5
 #define CANFIX_CFG_KEY_A_X          6
 #define CANFIX_CFG_KEY_A_Y          7
 #define CANFIX_CFG_KEY_A_Z          8
-#define CANFIX_CFG_KEY_Q0           9
+#define CANFIX_CFG_KEY_Q0           9   // float
 #define CANFIX_CFG_KEY_Q1           10
 #define CANFIX_CFG_KEY_Q2           11
 #define CANFIX_CFG_KEY_Q3           12
+#define CANFIX_CFG_KEY_STATUS       13  // uint8_t
+#define CANFIX_CFG_KEY_DPRESS       14  // float pressure offset
 
 
 

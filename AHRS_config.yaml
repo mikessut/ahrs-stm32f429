@@ -9,3 +9,6 @@ Q0: 0.999722430218001
 Q1: 0.0
 Q2: 0.0235597648336102
 Q3: 0.0
+
+# Differential pressure sensor offset
+DPRESS: 92.8817

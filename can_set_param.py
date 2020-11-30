@@ -31,16 +31,19 @@ PARAMS = {
     'HARD_IRONX': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 0, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'HARD_IRONY': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 1, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'HARD_IRONZ': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 2, 'struct_unpack': lambda x: struct.unpack('f', x)},
-    'WBX': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 3, 'struct_unpack': lambda x: struct.unpack('i', x)},
-    'WBY': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 4, 'struct_unpack': lambda x: struct.unpack('i', x)},
-    'WBZ': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 5, 'struct_unpack': lambda x: struct.unpack('i', x)},
-    'ABX': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 6, 'struct_unpack': lambda x: struct.unpack('i', x)},
-    'ABY': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 7, 'struct_unpack': lambda x: struct.unpack('i', x)},
-    'ABZ': {'struct_pack': lambda x: struct.pack('i', int(x)), 'byte2': 8, 'struct_unpack': lambda x: struct.unpack('i', x)},
+    'WBX': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 3, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'WBY': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 4, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'WBZ': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 5, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'ABX': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 6, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'ABY': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 7, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'ABZ': {'struct_pack': lambda x: struct.pack('f', float(x)), 'byte2': 8, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q0': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 9, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q1': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 10, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q2': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 11, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q3': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 12, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'STATUS': {'struct_pack': lambda x: struct.pack('B', int(x)),  'byte2': 13, 'struct_unpack': lambda x: struct.unpack('B', x)},
+    'DPRESS': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 14, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    
 }
 
 
@@ -131,7 +134,7 @@ if __name__ == '__main__':
     elif args.qry:
         msg = qry_cfg_param(args.dest, PARAMS[args.param]['byte2'])
         bus.send(msg)
-        val = rcv_msg(bus, args.dest + CANFIX_NODE_MSGS_OFFSET, args.param)
+        val = PARAMS[args.param]['struct_unpack'](rcv_msg(bus, args.dest + CANFIX_NODE_MSGS_OFFSET, args.param)[3:])[0]
         print(f"{args.param}: {val}")
     else:
         # normal message

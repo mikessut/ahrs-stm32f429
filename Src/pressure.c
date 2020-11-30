@@ -10,10 +10,18 @@ extern SPI_HandleTypeDef hspi3;
 
 IIRFilterDef altitude_filter;
 IIRFilterDef vs_filter = {
-  0.00156833, 0.00156833, // b
+  {0.00156833, 0.00156833}, // b
   0, 0, // x, y
   -0.99686333 //a1
 };
+
+IIRFilterDef ias_filter = {
+  {0.04503501, 0.04503501}, // b
+  0.0, 0.0, // x, y
+  -0.90992999 //a1
+};
+
+float dpress_offset = 0.0;
 
 void airspeed_altitude(float abs_press, float diff_press, float alt_setting, float oat,
                        float *altitude, float *ias, float *tas, float *vs)
@@ -36,7 +44,7 @@ void airspeed_altitude(float abs_press, float diff_press, float alt_setting, flo
   float alt_ft = h * CONV_M2FT;
   *vs = iir_filter(&vs_filter, (alt_ft - altitude_filter.x) / 0.042 * 60.0);
   *altitude = iir_filter(&altitude_filter, alt_ft);  
-  *ias = sqrt(diff_press*2/CONST_RHO0)*CONV_MS2KNOTS;
+  *ias = iir_filter(&ias_filter, sqrt(abs(diff_press)*2/CONST_RHO0)*CONV_MS2KNOTS);
   *tas = (*ias) * sqrt(CONST_RHO0/rho);
 }
 
@@ -75,5 +83,6 @@ int diff_pressure(float *diff_press, float *diff_press_temp) {
     //
     uint16_t bridge_data = ((diff_press_data[0] & 0x3F) << 8) + diff_press_data[1];
     *diff_press = (((float)(bridge_data - 1638)*200.0) / ((float)(14745-1638)) - 100.0) * CONV_MBAR2PA;
+    *diff_press += dpress_offset;
     *diff_press_temp = (float)((diff_press_data[2] << 3) + ((diff_press_data[3] & 0xE0) >> 5))/2047.0*200.0 - 50.0;
 }
