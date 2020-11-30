@@ -20,8 +20,8 @@ Kalman::Kalman() {
   float aerr_x = pow(2*g, 2.0);  // confidence that ax, ay, az is from phi/TAS
   float aerr_y = pow(2*g, 2.0);
   float aerr_z = pow(4*g, 2.0);
-  float werr_x = pow(10*PI/180, 2) / 1;
-  float werr_y = pow(10*PI/180, 2) / 1;
+  float werr_x = pow(500*PI/180, 2) / 1;
+  float werr_y = pow(500*PI/180, 2) / 1;
   float werr_z = pow(5*PI/180, 2) / 1;
 
   float wberr = pow(.02*PI/180, 2) / 120.0;

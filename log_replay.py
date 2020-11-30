@@ -16,6 +16,11 @@ KTS2MS = 1/1.94384
 
 GENERATING_NODE_ID = 0x12
 
+# mag comp
+mag_bias = np.array([-2.60182691, -0.11392444, 13.45440467])
+mag_sfs = np.array([1.0, 0.99186357,  0.81595121])
+mag_abc = np.array([-0.12887428, -0.15416611,  0.0216775 ])
+
 class DataReader:
 
     PARAMS = [x['name'] for x in MSGS.values()]
@@ -49,6 +54,12 @@ class DataReader:
 
     def m(self):
         return np.array([self.CAN_MAGX, self.CAN_MAGY, self.CAN_MAGZ])
+
+    def m_compensation(self, bias, sfs, a, b, c):
+        sensor = self.m()
+        return np.array([[sfs[0], a, b],
+                         [a, sfs[1], c],
+                         [b, c, sfs[2]]]).dot(np.vstack(sensor + bias)).flatten()
 
     def CAN_xmit(self, bus):
         for msg_id, v in MSGS.items():
@@ -90,8 +101,8 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, ctr, dt, run_k
         if run_kf:
             kf.predict(dt, data.CANFIX_TAS * KTS2MS)
             kf.update_accel(data.a())
-            kf.update_gyro(data.w())
-            mag = data.m() + np.array([-18, 0, 0.0], dtype=float)
+            kf.update_gyro(data.w() * 2)  #  + np.array([0, -.5, 0])*np.pi/180)
+            mag = data.m_compensation(mag_bias, mag_sfs, *mag_abc)
             kf.update_mag(mag)
             es = kf.eulers()*180/np.pi  #roll, pitch, heading
             data.CANFIX_ROLL = es[0]

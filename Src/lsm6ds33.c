@@ -130,9 +130,17 @@ int lsm6ds33_initialize(SPI_HandleTypeDef* spi_port, GPIO_TypeDef* cs_gpio_bank,
   //  return -1;
 
   /* turn on accel */
-  _write_reg(0x10, 0x20);
+  // ODR 52 Hz
+  // FSR 2g  (should this be higher?)
+  _write_reg(0x10, 0x30);
+  //_write_reg(0x10, 0x20);
+  
+  
   /* turn on gyro */
-  _write_reg(0x11, 0x20);
+  // ODR 52 Hz
+  // FSR 125 dps
+  _write_reg(0x11, 0x32);
+  //_write_reg(0x11, 0x20);
 
   _read_reg_u8(0x0F, &who_am_i);
 
