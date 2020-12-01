@@ -122,8 +122,8 @@ void Kalman::update_mag(Matrix<float, 3, 1> m)
   float heading = q2heading(q);
 
   // Remove roll and pitch from sensor reading to compute sensor heading vector
-  Quaternion<float> qtmp = Quaternion<float>(AngleAxis<float>(roll, Matrix<float, 3, 1>(1.0, 0, 0))) *
-                           Quaternion<float>(AngleAxis<float>(pitch, Matrix<float, 3, 1>(0, 1.0, 0)));
+  Quaternion<float> qtmp = Quaternion<float>(AngleAxis<float>(pitch, Matrix<float, 3, 1>(0, 1.0, 0))) *
+                           Quaternion<float>(AngleAxis<float>(roll, Matrix<float, 3, 1>(1.0, 0, 0)));
   Matrix<float, 3, 1> sensor_heading = (qtmp * Quaternion<float>(0, m(0), m(1), m(2)) * qtmp.inverse()).vec();
   sensor_heading(2) = 0;
   sensor_heading.normalize();

@@ -138,6 +138,8 @@
 #define CANFIX_CFG_KEY_Q1           10
 #define CANFIX_CFG_KEY_Q2           11
 #define CANFIX_CFG_KEY_Q3           12
+// Bit
+// 0:  mag update
 #define CANFIX_CFG_KEY_STATUS       13  // uint8_t
 #define CANFIX_CFG_KEY_DPRESS       14  // float pressure offset
 

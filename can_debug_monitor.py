@@ -6,6 +6,7 @@ import struct
 import argparse
 import datetime
 import numpy as np
+import quaternion
 import os
 
 
@@ -46,6 +47,54 @@ MSGS = {
     0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15),       'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100,  'pack_func': lambda x: struct.pack('h', int(x*100))},
     0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3),    'unpack_func': lambda x: struct.unpack('h', x[3:])[0],        'pack_func': lambda x: struct.pack('h', int(x))},
 }
+
+
+class HeadingCalculator:
+
+    def __init__(self):
+        self._mag = [None, None, None]
+        self._roll = None
+        self._pitch = None
+    
+    def data_update(self, k, val):
+        if k == 'CAN_MAGX':
+            self._mag[0] = val
+        elif k == 'CAN_MAGY':
+            self._mag[1] = val
+        elif k == 'CAN_MAGZ':
+            self._mag[2] = val
+        elif k == 'CANFIX_ROLL':
+            self._roll = val
+        elif k == 'CANFIX_PITCH':
+            self._pitch = val
+
+    def all_finite(self):
+        if all(self._mag) and (self._roll is not None) and (self._pitch is not None):
+            return True
+        else:
+            return False
+
+    def calc(self):
+        if not self.all_finite():
+            self._head_v = [np.nan, np.nan]
+            return    
+        qtmp = quaternion.from_rotation_vector(np.array([1, 0, 0]) * self._pitch*np.pi/180) * \
+               quaternion.from_rotation_vector(np.array([0, 1, 0]) * self._roll*np.pi/180)
+        
+        sensor_heading = quaternion.as_float_array(qtmp * np.quaternion(0, *self._mag) * qtmp.inverse())[1:]
+        sensor_heading[2] = 0;
+        sensor_heading /= np.linalg.norm(sensor_heading)
+        sensor_heading[1] *= -1;
+        self._head_v = [sensor_heading[0], sensor_heading[1]]
+
+    def head_vector_x(self):
+        return self._head_v[0]
+
+    def head_vector_y(self):
+        return self._head_v[1]
+
+    def heading(self):
+        return pos_heading(np.arctan2(self._head_v[1], self._head_v[0]))
 
 
 def pos_heading(head_rad):
@@ -93,7 +142,7 @@ if __name__ == '__main__':
 
     run_bool = True
 
-    head_vec = [None, None]
+    head = HeadingCalculator()
 
     while run_bool:
 
@@ -117,12 +166,11 @@ if __name__ == '__main__':
             if args.log_all and msg.arbitration_id in logs.keys():
                 logs[msg.arbitration_id].write(f"{msg.timestamp} {val}\n")
 
-            if v['name'] == 'CAN_HEAD_VEC_X':
-                head_vec[0] = val
-            elif v['name'] == 'CAN_HEAD_VEC_Y':
-                head_vec[1] = val
-            if all(head_vec):
-                screen.addstr(9, 15+9*2+3, f"{pos_heading(np.arctan2(head_vec[1], head_vec[0])):.1f}")
+            head.data_update(v['name'], val)
+            head.calc()
+            screen.addstr(9, 15, f"{head.head_vector_x():9.3f}")
+            screen.addstr(9, 15+9, f"{head.head_vector_y():9.3f}")
+            screen.addstr(9, 15+9*2, f"{head.heading():9.1f}")
                 
 
         screen.refresh()

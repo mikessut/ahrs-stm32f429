@@ -50,6 +50,8 @@ class DataReader:
         return np.array([self.CAN_AX, self.CAN_AY, self.CAN_AZ])
 
     def w(self):
+        if (max(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t) - min(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)) > .005:
+            raise ValueError("dt off")
         return np.array([self.CAN_WX, self.CAN_WY, self.CAN_WZ])
 
     def m(self):
@@ -78,6 +80,12 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, ctr, dt, run_k
 
     if run_kf:
         kf = kalman_cpp.KalmanCpp()
+        for _ in range(400):
+            kf.predict(dt, data.CANFIX_TAS * KTS2MS)
+            kf.update_accel(data.a())
+            kf.update_gyro(data.w() * 2)  #  + np.array([0, -.5, 0])*np.pi/180)
+            mag = data.m_compensation(mag_bias, mag_sfs, *mag_abc)
+            kf.update_mag(mag)
 
     while run_bool.is_set():
         while pause_bool.is_set():
@@ -88,15 +96,8 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, ctr, dt, run_k
         #     quaternion.from_rotation_vector(np.array([1,0,0])*data.CANFIX_PITCH*np.pi/180) * \
         #     quaternion.from_rotation_vector(np.array([0,1,1])*data.CANFIX_ROLL*np.pi/180) 
 
-        qtmp = quaternion.from_rotation_vector(np.array([1, 0, 0]) * data.CANFIX_ROLL*np.pi/180) * \
-               quaternion.from_rotation_vector(np.array([0, 1, 0]) * data.CANFIX_PITCH*np.pi/180)
-        
-        sensor_heading = quaternion.as_float_array(qtmp * np.quaternion(0, data.CAN_MAGX-18, data.CAN_MAGY, data.CAN_MAGZ) * qtmp.inverse())[1:]
-        sensor_heading[2] = 0;
-        sensor_heading /= np.linalg.norm(sensor_heading)
-        sensor_heading[1] *= -1;
-        data.CAN_HEAD_VEC_X = sensor_heading[0]
-        data.CAN_HEAD_VEC_Y = sensor_heading[1]
+        #data.CAN_HEAD_VEC_X = sensor_heading[0]
+        #data.CAN_HEAD_VEC_Y = sensor_heading[1]
 
         if run_kf:
             kf.predict(dt, data.CANFIX_TAS * KTS2MS)

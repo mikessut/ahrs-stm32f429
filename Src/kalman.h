@@ -16,7 +16,7 @@
 
 #define ACCEL_MEAS_ERR  1.5    // m/s^2
 #define GYRO_MEAS_ERR   0.01   // rad/sec
-#define MAG_MEAS_ERR    0.01   // in normalized heading vector units
+#define MAG_MEAS_ERR    0.3   // in normalized heading vector units sin(20deg) ??
 
 // TAS shows up in the denominator of some of the calculations and thus can't go to
 // zero.  This parameter limits the minimum value used in the calcualtions.
