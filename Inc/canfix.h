@@ -8,6 +8,9 @@
 #ifndef CAN_FIX_H_
 #define CAN_FIX_H_
 
+#include "main.h"
+#include "kalman.h"
+
 #define CANFIX_NODE_ID        0x12
 
 // Message id at which node specific messages begin. See spec for details. 
@@ -140,9 +143,39 @@
 #define CANFIX_CFG_KEY_Q3           12
 // Bit
 // 0:  mag update
+// 7:  reset
 #define CANFIX_CFG_KEY_STATUS       13  // uint8_t
 #define CANFIX_CFG_KEY_DPRESS       14  // float pressure offset
 
+void can_debug(Kalman *k, float *a, float *w, float *m, 
+               float *abs_press, float *abs_press_temp,
+               float *diff_press, float *diff_press_temp,
+               float *dt, float *baro, float *temperature);                
+
+int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len);
+
+// CANfix normal messages
+int send_canfix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen);
+int send_canfix_msg(uint32_t msg_id, uint32_t);
+int send_canfix_msg(uint32_t msg_id, int32_t);
+int send_canfix_msg(uint32_t msg_id, uint16_t);
+int send_canfix_msg(uint32_t msg_id, int16_t msg); 
+int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs, float *ay);
+
+// CANFIX Node Specific support functions
+void canfix_cfg_qry(uint8_t destination, float data);
+void canfix_cfg_qry(uint8_t destination, uint8_t data);
+void canfix_cfg_set(float *destination, uint8_t idx, uint8_t *can_buffer, 
+                    uint8_t reply_destination, uint8_t error_code);
+void canfix_cfg_set(uint8_t *destination, uint8_t idx, uint8_t *can_buffer, 
+                    uint8_t reply_destination, uint8_t error_code);
+
+
+// Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
+int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
+
+int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
+                   float *wb, float *ab, float *q, uint8_t *status);
 
 
 #endif /* CAN_FIX_H_ */

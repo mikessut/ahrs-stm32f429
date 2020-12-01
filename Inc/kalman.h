@@ -66,6 +66,7 @@ private:
 public:
   Matrix <float, NSTATES, 1> x;  // should be private, but public for testing
   Kalman();
+  void initialize();
   void predict(float dt, float tas);
   void update_accel(Matrix<float, 3, 1> a);
   void update_gyro(Matrix<float, 3, 1> w);

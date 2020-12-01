@@ -38,6 +38,7 @@ EIGEN_INCLUDE_DIR = /usr/include/eigen3
 # C sources
 C_SOURCES =  \
 Src/utils.c \
+Src/canfix.c \
 Src/pressure.c \
 Src/lis3mdl.c \
 Src/lsm6ds33.c \

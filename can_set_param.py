@@ -41,7 +41,7 @@ PARAMS = {
     'Q1': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 10, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q2': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 11, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'Q3': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 12, 'struct_unpack': lambda x: struct.unpack('f', x)},
-    'STATUS': {'struct_pack': lambda x: struct.pack('B', int(x)),  'byte2': 13, 'struct_unpack': lambda x: struct.unpack('B', x)},
+    'STATUS': {'struct_pack': lambda x: struct.pack('B', int(x, 0)),  'byte2': 13, 'struct_unpack': lambda x: struct.unpack('B', x)},
     'DPRESS': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 14, 'struct_unpack': lambda x: struct.unpack('f', x)},
     
 }

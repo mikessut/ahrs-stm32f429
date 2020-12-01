@@ -1,22 +1,15 @@
-
 #include "kalman.h"
 
 
 Kalman::Kalman() {
-  
+  initialize();
+}
+
+
+void Kalman::initialize() {
   // Setup P matrix
   P = Matrix<float, NSTATES, NSTATES>::Zero();
-  // P(I_Q0, I_Q0) = pow(.3, 2);
-  // P(I_Q1, I_Q1) = pow(.1, 2);
-  // P(I_Q2, I_Q2) = pow(.1, 2);
-  // P(I_Q3, I_Q3) = 100;  // Allows for faster init of mag to heading
-// 
-  // for (int i=0; i < 3; i++) {
-  //   // 2 degree error
-  //   // sin(2deg) = .03
-  //   P(I_AX+i, I_AX+i) = pow(.03*g, 2);
-  // }
-
+  
   float aerr_x = pow(2*g, 2.0);  // confidence that ax, ay, az is from phi/TAS
   float aerr_y = pow(2*g, 2.0);
   float aerr_z = pow(4*g, 2.0);

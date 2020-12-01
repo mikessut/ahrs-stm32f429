@@ -25,7 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <math.h>
-#include "can_fix.h"
+#include "canfix.h"
 #include "lsm6ds33.h"
 #include "lis3mdl.h"
 #include "kalman.h"
@@ -131,6 +131,11 @@ int main(void)
     uint32_t tick_ctr = HAL_GetTick();
     float dt;
     
+    if (status & 0x80) {
+      k.initialize();
+      init_ctr = 0;
+      status &= ~0x80;
+    }
     // SPI1 = LSM6DS33
     // SPI2 = LIS3MDL
     // TODO: 
@@ -181,6 +186,11 @@ int main(void)
         a_offset[i] /= NUM_INIT;
       }
       init_ctr++;
+      // Blast out the offsets from initialization
+      for (int i=0; i < 3; i++) 
+        canfix_cfg_qry(0, w_offset[i]);
+      for (int i=0; i < 3; i++) 
+        canfix_cfg_qry(0, a_offset[i]);
     }
 
     // apply offsets (caution: this is in rotated frame)
