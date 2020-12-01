@@ -45,8 +45,21 @@
 #define SEND_CAN_DEBUG_MSGS
 //#define SEND_UART_DEBUG_MSGS
 
+
+// Global variables
 uint8_t buffer[200];
 uint8_t buffer2[11];
+float hard_iron[3] = {0, 0, 0};
+float soft_iron[6] = {1.0, 1.0, 1.0, 0, 0, 0};
+// Quaternion rotation from sensor frame to body frame
+float q[4] = {1.0, 0, 0, 0};
+// Bit
+// 0:  mag update
+uint8_t status = 0x01;
+float baro = 29.92;  // inHg
+float temperature = 25; // degC
+float wb[3] = {0, 0, 0};
+float ab[3] = {0, 0, 0};
 
 
 /**
@@ -55,8 +68,7 @@ uint8_t buffer2[11];
   */
 int main(void)
 {
-  float baro = 29.92;  // inHg
-  float temperature = 25; // degC
+
   float abs_press, diff_press; // Pascal
   float abs_press_temp, diff_press_temp;
   float tas = 0;
@@ -65,17 +77,10 @@ int main(void)
   float w[3];
   float a[3];
   float m[3];
-  float hard_iron[3] = {0, 0, 0};
   int init_ctr = 0;
-  float w_offset[3] = {0, 0, 0};
-  float a_offset[3] = {0, 0, 0};
+
   float mag_init[3] = {0, 0, 0};
-  // Quaternion rotation from sensor frame to body frame
-  float q[4] = {1.0, 0, 0, 0};
-  // Bit
-  // 0:  mag update
-  uint8_t status = 0x01;
-  
+    
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
@@ -168,12 +173,12 @@ int main(void)
 
     if (init_ctr < NUM_INIT) {
       for (int i=0; i < 3; i ++) {
-        w_offset[i] += w[i];
+        wb[i] += w[i];
         mag_init[i] += m[i];
       }
       for (int i=0; i < 2; i++) 
-        a_offset[i] += a[i];
-      a_offset[2] += a[2] + G;
+        ab[i] += a[i];
+      ab[2] += a[2] + G;
 
       init_ctr++;
       HAL_Delay(10);
@@ -182,26 +187,34 @@ int main(void)
       //k.init_mag(Matrix<float, 3, 1>(mag_init_x/NUM_INIT, mag_init_y/NUM_INIT, mag_init_z/NUM_INIT));
       //k.normalize_yaw();
       for (int i=0; i < 3; i++) {
-        w_offset[i] /= NUM_INIT;
-        a_offset[i] /= NUM_INIT;
+        wb[i] /= NUM_INIT;
+        ab[i] /= NUM_INIT;
       }
       init_ctr++;
       // Blast out the offsets from initialization
       for (int i=0; i < 3; i++) 
-        canfix_cfg_qry(0, w_offset[i]);
+        canfix_cfg_qry(0, wb[i]);
       for (int i=0; i < 3; i++) 
-        canfix_cfg_qry(0, a_offset[i]);
+        canfix_cfg_qry(0, ab[i]);
     }
 
     // apply offsets (caution: this is in rotated frame)
     for (int i=0; i < 3; i++) {
-      a[i] -= a_offset[i];
-      w[i] -= w_offset[i];
+      a[i] -= ab[i];
+      w[i] -= wb[i];
     }
 
     // apply hard iron compensation
     for (int i=0; i < 3; i++)
       m[i] += hard_iron[i];
+
+    // apply soft iron compensation
+    // [sfx   a    b]                                 [0  3  4]
+    // [a    sfy   c] => index location in soft_iron  [3  1  5]
+    // [b     c  sfz]                                 [4  5  2]
+    m[0] = soft_iron[0]*m[0] + soft_iron[3]*m[1] + soft_iron[4]*m[2];
+    m[1] = soft_iron[3]*m[0] + soft_iron[1]*m[1] + soft_iron[5]*m[2];
+    m[2] = soft_iron[4]*m[0] + soft_iron[5]*m[1] + soft_iron[2]*m[2];
 
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
@@ -238,7 +251,7 @@ int main(void)
     #endif              
 
     #ifdef RX_CAN_MSGS
-    rx_canfix_msgs(&baro, &temperature, hard_iron, w_offset, a_offset, q, &status);
+    rx_canfix_msgs();
     #endif
 
     // air data computations

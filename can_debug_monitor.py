@@ -8,6 +8,7 @@ import datetime
 import numpy as np
 import quaternion
 import os
+import sys
 
 
 MSGS = {
@@ -108,8 +109,14 @@ if __name__ == '__main__':
     parser.add_argument('-fn', help='Log filename', default=f"{datetime.datetime.now().strftime('%y%m%d%H%M')}_{{}}.log")
     parser.add_argument('-l', '--log', nargs='+', type=lambda x: x.upper())    
     parser.add_argument('-la', '--log-all', default=False, action='store_true')
+    parser.add_argument('-p', '--param-names', default=False, action='store_true', help="List known parameters")
     parser.add_argument('--can-bus', default='can0')
     args = parser.parse_args()
+
+    if args.param_names:
+        for k, v in MSGS.items():
+            print(v['name'])
+        sys.exit(0)
 
     if args.log is not None:
         logs = {x: open(os.path.join('logs', args.fn.format(x)), 'w') for x in args.log}

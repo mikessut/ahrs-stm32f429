@@ -131,21 +131,27 @@
 #define CANFIX_CFG_KEY_HARDIRON_X   0
 #define CANFIX_CFG_KEY_HARDIRON_Y   1
 #define CANFIX_CFG_KEY_HARDIRON_Z   2
-#define CANFIX_CFG_KEY_W_X          3
-#define CANFIX_CFG_KEY_W_Y          4
-#define CANFIX_CFG_KEY_W_Z          5
-#define CANFIX_CFG_KEY_A_X          6
-#define CANFIX_CFG_KEY_A_Y          7
-#define CANFIX_CFG_KEY_A_Z          8
-#define CANFIX_CFG_KEY_Q0           9   // float
-#define CANFIX_CFG_KEY_Q1           10
-#define CANFIX_CFG_KEY_Q2           11
-#define CANFIX_CFG_KEY_Q3           12
+#define CANFIX_CFG_KEY_SOFTIRON_X   3
+#define CANFIX_CFG_KEY_SOFTIRON_Y   4
+#define CANFIX_CFG_KEY_SOFTIRON_Z   5
+#define CANFIX_CFG_KEY_SOFTIRON_A   6
+#define CANFIX_CFG_KEY_SOFTIRON_B   7
+#define CANFIX_CFG_KEY_SOFTIRON_C   8
+#define CANFIX_CFG_KEY_W_X          9
+#define CANFIX_CFG_KEY_W_Y          10
+#define CANFIX_CFG_KEY_W_Z          11
+#define CANFIX_CFG_KEY_A_X          12
+#define CANFIX_CFG_KEY_A_Y          13
+#define CANFIX_CFG_KEY_A_Z          14
+#define CANFIX_CFG_KEY_Q0           15   // float
+#define CANFIX_CFG_KEY_Q1           16
+#define CANFIX_CFG_KEY_Q2           17
+#define CANFIX_CFG_KEY_Q3           18
 // Bit
 // 0:  mag update
 // 7:  reset
-#define CANFIX_CFG_KEY_STATUS       13  // uint8_t
-#define CANFIX_CFG_KEY_DPRESS       14  // float pressure offset
+#define CANFIX_CFG_KEY_STATUS       19  // uint8_t
+#define CANFIX_CFG_KEY_DPRESS       20  // float pressure offset
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
@@ -174,8 +180,6 @@ void canfix_cfg_set(uint8_t *destination, uint8_t idx, uint8_t *can_buffer,
 // Just bare can data. (Not the 3 extra CANFIX bytes.)  Used for debug.
 int send_can_msg(uint32_t msg_id, uint8_t *msg, int len);
 
-int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   float *wb, float *ab, float *q, uint8_t *status);
-
+int rx_canfix_msgs();
 
 #endif /* CAN_FIX_H_ */

@@ -6,6 +6,14 @@ extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart2;
 extern float dpress_offset;
 
+extern float hard_iron[3];
+extern float soft_iron[3];
+extern float q[4];
+extern uint8_t status;
+extern float baro;  // inHg
+extern float temperature; // degC
+extern float wb[3];
+extern float ab[3];
 
 int send_canfix_msg(uint32_t msg_id, uint32_t msg) 
 {
@@ -80,8 +88,7 @@ int send_can_msg(uint32_t msg_id, uint8_t *msg, int len)
   return 0;
 }
 
-int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
-                   float *wb, float *ab, float *q, uint8_t *status) {
+int rx_canfix_msgs() {
   uint32_t id;
   uint8_t data[10];
   uint8_t len;
@@ -101,7 +108,7 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
           // Altimeter setting 
           // sprintf((char*)buffer, "Baro set\r\n");
           // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-          *baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
+          baro = (float)(*((uint16_t*)(&data[3]))) / 1000.0;
         }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_SET) && (data[1] == CANFIX_NODE_ID)) {
         // Configure messages
@@ -110,6 +117,8 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
         // sending+1760   0x09   Destination   Key   Key specific data fmt
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 7)) {
           canfix_cfg_set(hard_iron, data[2] - CANFIX_CFG_KEY_HARDIRON_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
+        } else if ((data[2] >= CANFIX_CFG_KEY_SOFTIRON_X) && (data[2] <= CANFIX_CFG_KEY_SOFTIRON_C) && (len == 7)) {
+          canfix_cfg_set(soft_iron, data[2] - CANFIX_CFG_KEY_SOFTIRON_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 7)) {
           canfix_cfg_set(wb, data[2] - CANFIX_CFG_KEY_W_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 7)) {
@@ -117,7 +126,7 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 7)) {
           canfix_cfg_set(q, data[2] - CANFIX_CFG_KEY_Q0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 4)) {
-          canfix_cfg_set(status, 0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
+          canfix_cfg_set(&status, 0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] == CANFIX_CFG_KEY_DPRESS) && (len == 7)) {
           canfix_cfg_set(&dpress_offset, 0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         }
@@ -125,6 +134,8 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
         // Configure query messages
         if ((data[2] >= CANFIX_CFG_KEY_HARDIRON_X) && (data[2] <= CANFIX_CFG_KEY_HARDIRON_Z) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), hard_iron[data[2] - CANFIX_CFG_KEY_HARDIRON_X]);    
+        } else if ((data[2] >= CANFIX_CFG_KEY_SOFTIRON_X) && (data[2] <= CANFIX_CFG_KEY_SOFTIRON_C) && (len == 3)) {
+          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), soft_iron[data[2] - CANFIX_CFG_KEY_SOFTIRON_X]);  
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), wb[data[2] - CANFIX_CFG_KEY_W_X]);  
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 3)) {
@@ -132,14 +143,14 @@ int rx_canfix_msgs(float *baro, float *temperature, float *hard_iron,
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), q[data[2] - CANFIX_CFG_KEY_Q0]);    
         } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 3)) {
-          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), *status);
+          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), status);
         } else if ((data[2] == CANFIX_CFG_KEY_DPRESS) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), dpress_offset);    
         }
       } 
     } else if (id == CANFIX_SAT) {
       // normal CANFIX msg for temperature
-      *temperature = (float)(*((int16_t*)(&data[3]))) / 100.0;
+      temperature = (float)(*((int16_t*)(&data[3]))) / 100.0;
     }
   }
 }
