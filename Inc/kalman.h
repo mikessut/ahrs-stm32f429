@@ -96,6 +96,8 @@ public:
   float pitch();
   float heading();
 
+  float turn_rate();
+
   float get_P(int i, int j) {
     return P(i, j);
   }

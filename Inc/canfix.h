@@ -171,6 +171,8 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
 // CANFIX Node Specific support functions
 void canfix_cfg_qry(uint8_t destination, float data);
 void canfix_cfg_qry(uint8_t destination, uint8_t data);
+// CANFIX spec has byte2 as 0x00; We're using it here for unsolicited cfg qry responses
+void canfix_cfg_qry(uint8_t destination, float data, uint8_t byte2);
 void canfix_cfg_set(float *destination, uint8_t idx, uint8_t *can_buffer, 
                     uint8_t reply_destination, uint8_t error_code);
 void canfix_cfg_set(uint8_t *destination, uint8_t idx, uint8_t *can_buffer, 

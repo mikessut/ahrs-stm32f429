@@ -151,6 +151,8 @@ if __name__ == '__main__':
 
     head = HeadingCalculator()
 
+    ctr = 0
+
     while run_bool:
 
         msg = bus.recv()
@@ -178,6 +180,11 @@ if __name__ == '__main__':
             screen.addstr(9, 15, f"{head.head_vector_x():9.3f}")
             screen.addstr(9, 15+9, f"{head.head_vector_y():9.3f}")
             screen.addstr(9, 15+9*2, f"{head.heading():9.1f}")
+
+            # Count on roll message
+            if v['name'] == 'CANFIX_ROLL':
+                screen.addstr(0, 60, f"{ctr}")
+                ctr += 1
                 
 
         screen.refresh()

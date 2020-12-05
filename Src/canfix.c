@@ -202,6 +202,7 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
     send_canfix_msg(CANFIX_ALT, (int32_t)(*altitude));
     send_canfix_msg(CANFIX_VS, (int16_t)(*vs));
     send_canfix_msg(CANFIX_ACLAT, (int16_t)(((k->x(I_AY)) / G) * 1000.0));
+    send_canfix_msg(CANFIX_TURN_RATE, (int16_t)(k->turn_rate() * 10.0));
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
@@ -227,6 +228,13 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
 
 void canfix_cfg_qry(uint8_t destination, float data) {
   uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, destination, 0, 0, 0, 0, 0};
+  *((float*)(&reply[3])) = data;
+  send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
+}
+
+// CANFIX spec has byte2 as 0x00; We're using it here for unsolicited cfg qry responses
+void canfix_cfg_qry(uint8_t destination, float data, uint8_t byte2) {
+  uint8_t reply[7] = {CANFIX_CONTROLCODE_CFG_QRY, destination, byte2, 0, 0, 0, 0};
   *((float*)(&reply[3])) = data;
   send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 7);
 }

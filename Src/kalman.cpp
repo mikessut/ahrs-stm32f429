@@ -482,3 +482,8 @@ float positive_heading(float head_rad) {
     return head_rad;
   }
 }
+
+float Kalman::turn_rate() {
+  Quaternion<float> q(x(0), x(1), x(2), x(3));
+  return (q * Quaternion<float>(0, x(I_WX), x(I_WY), x(I_WZ)) * q.inverse()).vec()(2);
+}

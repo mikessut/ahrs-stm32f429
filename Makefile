@@ -37,6 +37,7 @@ EIGEN_INCLUDE_DIR = /usr/include/eigen3
 ######################################
 # C sources
 C_SOURCES =  \
+Src/gps.c \
 Src/utils.c \
 Src/canfix.c \
 Src/pressure.c \

@@ -30,6 +30,7 @@
 #include "lis3mdl.h"
 #include "kalman.h"
 #include "pressure.h"
+#include "gps.h"
 #include <cstring>
 #include "stm32f4xx_hal.h"
 #include "utils.h"
@@ -128,6 +129,11 @@ int main(void)
 
   HAL_Delay(1500);
 
+  // while (1) {
+  //   HAL_Delay(100);
+  //   read_gps();
+  // }
+
   while (1)
   {
     int16_t gyro[3];
@@ -193,9 +199,9 @@ int main(void)
       init_ctr++;
       // Blast out the offsets from initialization
       for (int i=0; i < 3; i++) 
-        canfix_cfg_qry(0, wb[i]);
+        canfix_cfg_qry(0, wb[i], CANFIX_CFG_KEY_W_X + i);
       for (int i=0; i < 3; i++) 
-        canfix_cfg_qry(0, ab[i]);
+        canfix_cfg_qry(0, ab[i], CANFIX_CFG_KEY_A_X + i);
     }
 
     // apply offsets (caution: this is in rotated frame)

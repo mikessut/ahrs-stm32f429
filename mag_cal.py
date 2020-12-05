@@ -80,7 +80,7 @@ def cal_sequence(data):
     hard_iron = [0, 0, 0]
     diag = [1, 1, 1]
     mix = [0, 0, 0]
-    for _ in range(50):
+    for _ in range(5):
         #print(hard_iron)
         #print(diag, mix)
         X = calibrate(data, True, False, False, hard_iron=hard_iron, diag=diag, mix=mix)
