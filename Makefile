@@ -216,10 +216,10 @@ $(BUILD_DIR):
 #######################################
 
 build/kalman_pic.o: Src/kalman.cpp
-	g++ $(CPPFLAGS) -I$(EIGEN_INCLUDE_DIR) -c -fpic Src/kalman.cpp -o build/kalman_pic.o
+	g++ $(CPPFLAGS) -I$(EIGEN_INCLUDE_DIR) -IInc -c -fpic Src/kalman.cpp -o build/kalman_pic.o
 
 python: build/kalman_pic.o
-	g++ $(CPPFLAGS) -ISrc -I$(EIGEN_INCLUDE_DIR) -c -fpic kalman_python_wrapper.cpp -o build/kalman_python_wrapper.o
+	g++ $(CPPFLAGS) -ISrc -I$(EIGEN_INCLUDE_DIR) -IInc -c -fpic kalman_python_wrapper.cpp -o build/kalman_python_wrapper.o
 	g++ -shared -o build/libkalman.so build/kalman_python_wrapper.o build/kalman_pic.o
 
 #######################################

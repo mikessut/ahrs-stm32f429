@@ -202,13 +202,13 @@ int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *
     send_canfix_msg(CANFIX_ALT, (int32_t)(*altitude));
     send_canfix_msg(CANFIX_VS, (int16_t)(*vs));
     send_canfix_msg(CANFIX_ACLAT, (int16_t)(((k->x(I_AY)) / G) * 1000.0));
-    send_canfix_msg(CANFIX_TURN_RATE, (int16_t)(k->turn_rate() * 10.0));
+    send_canfix_msg(CANFIX_TURN_RATE, (int16_t)(k->turn_rate()*180.0/M_PI * 10.0));
 }
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt, float *baro, float *temperature)
+               float *dt, float *baro, float *temperature, float *mraw)
 {
   for (int i=0; i < 3; i++) {
     send_can_msg(CAN_KF_WX+i, (uint8_t*)&k->x(I_WX+i), sizeof(float));
@@ -218,6 +218,7 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
     send_can_msg(CAN_AX+i, (uint8_t*)(a + i), sizeof(float));
 
     send_can_msg(CAN_MAGX+i, (uint8_t*)(m + i), sizeof(float));
+    send_can_msg(CAN_MAGRAWX+i, (uint8_t*)(mraw + i), sizeof(float));
   }
   send_can_msg(CAN_PRESSA, (uint8_t*)abs_press, sizeof(float));
   send_can_msg(CAN_PRESSD, (uint8_t*)diff_press, sizeof(float));

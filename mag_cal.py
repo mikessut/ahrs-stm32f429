@@ -76,11 +76,11 @@ def calibrate(data, solve_hard: bool, solve_diag: bool, solve_off_diag: bool,
     return X
 
 
-def cal_sequence(data):
-    hard_iron = [0, 0, 0]
-    diag = [1, 1, 1]
-    mix = [0, 0, 0]
-    for _ in range(5):
+def cal_sequence(data, hard_iron=[0,0,0], diag=[1,1,1], mix=[0,0,0]):
+    #hard_iron = [0, 0, 0]
+    #diag = [1, 1, 1]
+    #mix = [0, 0, 0]
+    for _ in range(3):
         #print(hard_iron)
         #print(diag, mix)
         X = calibrate(data, True, False, False, hard_iron=hard_iron, diag=diag, mix=mix)
@@ -104,13 +104,13 @@ def plot(data, hard_iron, soft_iron):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.scatter(data[:,0], data[:,1], data[:, 2])
+    #ax.scatter(data[:,0], data[:,1], data[:, 2])
 
     compensated = np.apply_along_axis(lambda x: apply_compensation(x, hard_iron, soft_iron[:3], *soft_iron[3:]), 1, data)
 
-    ax.scatter(compensated[:,0], compensated[:,1], compensated[:,2])
+    ax.scatter(compensated[:,0], compensated[:,1], compensated[:,2], 'r')
     u = np.linspace(0, 2 * np.pi, 40)
-    v = np.linspace(0, np.pi, 40)
+    v = np.linspace(0, 60*np.pi/180, 10)
 
     x = EARTH_FIELD * np.outer(np.cos(u), np.sin(v))
     y = EARTH_FIELD * np.outer(np.sin(u), np.sin(v))

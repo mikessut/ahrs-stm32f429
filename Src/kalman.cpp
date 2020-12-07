@@ -15,7 +15,7 @@ void Kalman::initialize() {
   float aerr_z = pow(4*g, 2.0);
   float werr_x = pow(500*PI/180, 2) / 1;
   float werr_y = pow(500*PI/180, 2) / 1;
-  float werr_z = pow(5*PI/180, 2) / 1;
+  float werr_z = pow(50*PI/180, 2) / 1;
 
   float wberr = pow(.02*PI/180, 2) / 120.0;
 

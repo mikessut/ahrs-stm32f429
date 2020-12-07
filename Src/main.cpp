@@ -78,6 +78,7 @@ int main(void)
   float w[3];
   float a[3];
   float m[3];
+  float mraw[3];
   int init_ctr = 0;
 
   float mag_init[3] = {0, 0, 0};
@@ -171,9 +172,9 @@ int main(void)
     w[1] = (float)-gyro[1]*GYRO_SF;
     w[2] = (float)-gyro[2]*GYRO_SF;
 
-    m[0] = (float) mag[0]*MAG_SF;
-    m[1] = (float)-mag[1]*MAG_SF;
-    m[2] = (float)-mag[2]*MAG_SF;    
+    mraw[0] = (float) mag[0]*MAG_SF;
+    mraw[1] = (float)-mag[1]*MAG_SF;
+    mraw[2] = (float)-mag[2]*MAG_SF;    
 
     rotate_sensors(q, a, w, m); 
 
@@ -218,9 +219,9 @@ int main(void)
     // [sfx   a    b]                                 [0  3  4]
     // [a    sfy   c] => index location in soft_iron  [3  1  5]
     // [b     c  sfz]                                 [4  5  2]
-    m[0] = soft_iron[0]*m[0] + soft_iron[3]*m[1] + soft_iron[4]*m[2];
-    m[1] = soft_iron[3]*m[0] + soft_iron[1]*m[1] + soft_iron[5]*m[2];
-    m[2] = soft_iron[4]*m[0] + soft_iron[5]*m[1] + soft_iron[2]*m[2];
+    m[0] = soft_iron[0]*mraw[0] + soft_iron[3]*mraw[1] + soft_iron[4]*mraw[2];
+    m[1] = soft_iron[3]*mraw[0] + soft_iron[1]*mraw[1] + soft_iron[5]*mraw[2];
+    m[2] = soft_iron[4]*mraw[0] + soft_iron[5]*mraw[1] + soft_iron[2]*mraw[2];
 
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_Delay(1);
@@ -253,7 +254,7 @@ int main(void)
     #ifdef SEND_CAN_DEBUG_MSGS
     can_debug(&k, a, w, m, 
               &abs_press, &abs_press_temp,
-              &diff_press, &diff_press_temp, &dt, &baro, &temperature);    
+              &diff_press, &diff_press_temp, &dt, &baro, &temperature, mraw);    
     #endif              
 
     #ifdef RX_CAN_MSGS

@@ -104,6 +104,9 @@
 #define CAN_DT                0x617
 #define CAN_HEAD_VEC_X        0x618
 #define CAN_HEAD_VEC_Y        0x619
+#define CAN_MAGRAWX           0x61A
+#define CAN_MAGRAWY           0x61B
+#define CAN_MAGRAWZ           0x61C
 
 // CANFIX Status
 #define CANFIX_STATUS_CODE_ANNUC   0x1
@@ -156,7 +159,7 @@
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,
-               float *dt, float *baro, float *temperature);                
+               float *dt, float *baro, float *temperature, float *mraw);
 
 int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len);
 

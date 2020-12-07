@@ -14,9 +14,9 @@
 #define K2ms  1852.0/3600.0   // Convert knots to m/s; 1852m = 1nm
 #define ft2m  1.0/3.28084
 
-#define ACCEL_MEAS_ERR  1.5    // m/s^2
-#define GYRO_MEAS_ERR   0.01   // rad/sec
-#define MAG_MEAS_ERR    0.3   // in normalized heading vector units sin(20deg) ??
+#define ACCEL_MEAS_ERR  pow(1.5 , 2)   // m/s^2
+#define GYRO_MEAS_ERR   pow(0.01, 2)   // rad/sec
+#define MAG_MEAS_ERR    pow(0.3 , 2)  // in normalized heading vector units sin(20deg) ??
 
 // TAS shows up in the denominator of some of the calculations and thus can't go to
 // zero.  This parameter limits the minimum value used in the calcualtions.
