@@ -47,3 +47,8 @@ sudo modprobe vcan
 sudo ip link add dev vcan0 type vcan
 sudo ip link set up vcan0
 ```
+
+```
+canplayer vcan0=can0 -I logs/candump-2020-12-06_183555.log
+awk '{if (substr($1, 2, 17) > 1607190440) { print $0}}' candump-2020-12-05_102623.log | canplayer vcan0=can0
+```

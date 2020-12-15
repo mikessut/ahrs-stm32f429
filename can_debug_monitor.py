@@ -38,6 +38,9 @@ MSGS = {
     0x617: {'name': 'CAN_DT', 'disp': (15, 15)},  
     #0x618: {'name': 'CAN_HEAD_VEC_X', 'disp': (9, 15)},  
     #0x619: {'name': 'CAN_HEAD_VEC_Y', 'disp': (9, 15+9)},  
+    0x61A: {'name': 'CAN_MAGRAWX'},
+    0x61B: {'name': 'CAN_MAGRAWY'},
+    0x61C: {'name': 'CAN_MAGRAWZ'},
     0x180: {'name': 'CANFIX_PITCH', 'disp': (17, 15+9),   'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100,    'pack_func': lambda x: struct.pack('h', int(x*100))},
     0x181: {'name': 'CANFIX_ROLL', 'disp':  (17, 15),     'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/100,    'pack_func': lambda x: struct.pack('h', int(x*100))},
     0x185: {'name': 'CANFIX_HEAD', 'disp':  (17, 15+9*2), 'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('H', int(x*10))},
@@ -167,7 +170,8 @@ if __name__ == '__main__':
             else:
                 val = struct.unpack('f', msg.data)[0]
             sf = v['sf'] if 'sf' in v else 1.0
-            screen.addstr(*v['disp'], f"{val*sf:9.3f}")
+            if 'disp' in v:
+                screen.addstr(*v['disp'], f"{val*sf:9.3f}")
 
             if (args.log is not None) and (v['name'] in logs):
                 logs[v['name']].write(f"{msg.timestamp} {val}\n")

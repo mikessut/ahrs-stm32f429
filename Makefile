@@ -158,12 +158,17 @@ CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 #######################################
 # link script
 LDSCRIPT = STM32F427VITx_FLASH.ld
+LDSCRIPT_BOOTLOADER = STM32F427VITx_FLASH_bootloader.ld
 
 # libraries
 LIBS = -lc -lm -lnosys
 LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) \
 -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections -specs=nosys.specs \
+-u _printf_float
+
+LDFLAGS_BOOTLOADER = $(MCU) -specs=nano.specs -T$(LDSCRIPT_BOOTLOADER) $(LIBDIR) $(LIBS) \
+-Wl,-Map=$(BUILD_DIR)/bootloader.map,--cref -Wl,--gc-sections -specs=nosys.specs \
 -u _printf_float
 
 # default action: build all
@@ -221,6 +226,44 @@ build/kalman_pic.o: Src/kalman.cpp
 python: build/kalman_pic.o
 	g++ $(CPPFLAGS) -ISrc -I$(EIGEN_INCLUDE_DIR) -IInc -c -fpic kalman_python_wrapper.cpp -o build/kalman_python_wrapper.o
 	g++ -shared -o build/libkalman.so build/kalman_python_wrapper.o build/kalman_pic.o
+
+# Bootloader
+
+BOOTLOADER_OBJS = \
+build/stm32f4xx_hal_msp.o \
+build/stm32f4xx_it.o \
+build/bootloader.o \
+build/startup_stm32f427xx.o \
+build/system_stm32f4xx.o \
+build/syscalls.o \
+build/stm32f4xx_hal_can.o  \
+build/stm32f4xx_hal.o \
+build/stm32f4xx_hal_cortex.o \
+build/stm32f4xx_hal_rcc.o \
+build/stm32f4xx_hal_flash.o \
+build/stm32f4xx_hal_pwr_ex.o \
+build/stm32f4xx_hal_gpio.o \
+
+bootloader: $(BUILD_DIR)/bootloader.elf $(BUILD_DIR)/bootloader.hex $(BUILD_DIR)/bootloader.bin
+	echo "default"
+
+# $(BUILD_DIR)/bootloader.o: Src/bootloader.c
+# 	#$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=build/bootloader.c Src/bootloader.c -o build/bootloader.o
+# 	echo "bootloader.o"
+# 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+
+$(BUILD_DIR)/bootloader.elf: $(BOOTLOADER_OBJS) Makefile
+	echo "bootloader linking"
+	$(LD) $(BOOTLOADER_OBJS) $(LDFLAGS_BOOTLOADER) -o $@
+	$(SZ) $@
+
+$(BUILD_DIR)/bootloader.hex: $(BUILD_DIR)/bootloader.elf | $(BUILD_DIR)
+	echo "bootloader hex"
+	$(HEX) $< $@
+
+$(BUILD_DIR)/bootloader.bin: $(BUILD_DIR)/bootloader.elf | $(BUILD_DIR)
+	echo "bootloader bin"
+	$(BIN) $< $@	
 
 #######################################
 # clean up
