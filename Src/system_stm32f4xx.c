@@ -163,6 +163,7 @@ const uint8_t APBPrescTable[8]  = {0, 0, 0, 0, 1, 2, 3, 4};
   * @param  None
   * @retval None
   */
+//#define FLASH_BASE 0x08008000UL
 void SystemInit(void)
 {
   /* FPU settings ------------------------------------------------------------*/

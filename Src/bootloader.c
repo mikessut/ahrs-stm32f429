@@ -216,24 +216,76 @@ void MX_GPIO_Init(void)
 
 }
 
+static void
+do_jump(uint32_t stacktop, uint32_t entrypoint)
+{
+//#if defined(STM32F7) || defined(STM32H7)
+    // disable caches on F7 before starting program
+    __DSB();
+    __ISB();
+    //SCB_DisableDCache();
+    //SCB_DisableICache();
+//#endif
+
+    //chSysLock();    
+
+    // we set sp as well as msp to avoid an issue with loading NuttX
+    asm volatile(
+        "mov sp, %0	\n"
+        "msr msp, %0	\n"
+        "bx	%1	\n"
+        : : "r"(stacktop), "r"(entrypoint) :);
+}
+
+#define APP_START_ADDRESS 0x8008000U
+
 int main(void) {
   
   HAL_Init();
   SystemClock_Config();
 
   MX_GPIO_Init();
-  //MX_CAN1_Init();
-  //initialize_CAN();
+  MX_CAN1_Init();
+  initialize_CAN();
 
   HAL_Delay(1000);
 
-  uint8_t buf[3] = {1, 2, 3};
-  //send_can_msg(0x123, buf, 3);
+  //typedef void (*func_ptr_type)(void);
+  //typedef void (func_type)(void);
+  //func_ptr_type fp;
+  //func_ptr_type fun_ptr = (void(*)())0x8008004;
+  uint8_t buf[4] = {1,2,3,4};
+  // buf[0] = *((uint8_t*)fun_ptr);
+  // buf[1] = *(((uint8_t*)fun_ptr) + 1);
+  // buf[2] = *(((uint8_t*)fun_ptr) + 2);
+  // buf[3] = *(((uint8_t*)fun_ptr) + 3);
+  
+  //*fp = (func_type)0x8017ae0;
+  send_can_msg(0x123, buf, 4);
 
   while (1) {
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-    HAL_Delay(1000);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-    HAL_Delay(1000);
+    for (int i=0; i < 5; i++) {
+      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+      HAL_Delay(1000);
+      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+      HAL_Delay(1000);
+    }
+    
+    //HAL_DeInit();
+      /* Disable all interrupts */
+    //RCC->CIR = 0x00000000;
+
+    //(*fun_ptr)();
+    //((void (*)(void))0x8017ae0)();
+
+    const uint32_t *app_base = (const uint32_t *)(APP_START_ADDRESS);
+    do_jump(app_base[0], app_base[1]);
+
+    for (int i=0; i < 5; i++) {
+      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+      HAL_Delay(500);
+      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+      HAL_Delay(500);
+    }
   }
 }

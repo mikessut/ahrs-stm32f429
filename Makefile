@@ -230,19 +230,19 @@ python: build/kalman_pic.o
 # Bootloader
 
 BOOTLOADER_OBJS = \
-build/stm32f4xx_hal_msp.o \
-build/stm32f4xx_it.o \
 build/bootloader.o \
 build/startup_stm32f427xx.o \
-build/system_stm32f4xx.o \
-build/syscalls.o \
 build/stm32f4xx_hal_can.o  \
 build/stm32f4xx_hal.o \
-build/stm32f4xx_hal_cortex.o \
 build/stm32f4xx_hal_rcc.o \
 build/stm32f4xx_hal_flash.o \
-build/stm32f4xx_hal_pwr_ex.o \
 build/stm32f4xx_hal_gpio.o \
+build/stm32f4xx_hal_pwr_ex.o \
+build/stm32f4xx_hal_cortex.o \
+build/system_stm32f4xx.o \
+build/stm32f4xx_hal_msp.o \
+build/stm32f4xx_it.o \
+build/syscalls.o \
 
 bootloader: $(BUILD_DIR)/bootloader.elf $(BUILD_DIR)/bootloader.hex $(BUILD_DIR)/bootloader.bin
 	echo "default"
