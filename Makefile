@@ -197,7 +197,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp Makefile | $(BUILD_DIR)
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
 	echo "c rule for " $@
-	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+	$(CC) -c $(CFLAGS) -DVECT_TAB_OFFSET=0x800 -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
 
 $(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
 	$(AS) -c $(CFLAGS) $< -o $@
@@ -236,10 +236,11 @@ build/stm32f4xx_hal_can.o  \
 build/stm32f4xx_hal.o \
 build/stm32f4xx_hal_rcc.o \
 build/stm32f4xx_hal_flash.o \
+build/stm32f4xx_hal_flash_ex.o \
 build/stm32f4xx_hal_gpio.o \
 build/stm32f4xx_hal_pwr_ex.o \
 build/stm32f4xx_hal_cortex.o \
-build/system_stm32f4xx.o \
+build/system_stm32f4xx_bootloader.o \
 build/stm32f4xx_hal_msp.o \
 build/stm32f4xx_it.o \
 build/syscalls.o \
@@ -251,6 +252,10 @@ bootloader: $(BUILD_DIR)/bootloader.elf $(BUILD_DIR)/bootloader.hex $(BUILD_DIR)
 # 	#$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=build/bootloader.c Src/bootloader.c -o build/bootloader.o
 # 	echo "bootloader.o"
 # 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+
+# -DVECT_TAB_OFFSET=0x800
+build/system_stm32f4xx_bootloader.o:
+	$(CC) -c $(CFLAGS) -DVECT_TAB_OFFSET=0x00 -Wa,-a,-ad,-alms=build/system_stm32f4xx_bootloader.lst Src/system_stm32f4xx.c -o build/system_stm32f4xx_bootloader.o
 
 $(BUILD_DIR)/bootloader.elf: $(BOOTLOADER_OBJS) Makefile
 	echo "bootloader linking"

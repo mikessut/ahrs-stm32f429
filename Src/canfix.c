@@ -1,4 +1,5 @@
 #include "canfix.h"
+#include "kalman.h"
 
 
 extern uint8_t buffer[200];
@@ -95,7 +96,7 @@ int rx_canfix_msgs() {
   if (CAN_rx(&id, data, &len)) {
     // sprintf((char*)buffer, "CAN rcvd: id: %d\r\n", id);
     // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    if ((id >= CANFIX_NODE_MSGS_OFFSET) && (id <= 2047)) {
+    if ((id >= CANFIX_NODE_MSGS_OFFSET) && (id <= (CANFIX_NODE_MSGS_OFFSET+256))) {
       // Node specific message data 
       // Byte
       // 0: Control code

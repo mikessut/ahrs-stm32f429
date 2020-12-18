@@ -1,5 +1,6 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
+#include "canfix.h"
 
 
 CAN_HandleTypeDef hcan1;
@@ -10,10 +11,9 @@ uint32_t flash_read(uint32_t address){
 }
 
 void flash_write(uint32_t address, uint32_t data){
-    HAL_FLASH_Unlock();
-    FLASH_Erase_Sector(FLASH_SECTOR_11,VOLTAGE_RANGE_1);
+    //HAL_FLASH_Unlock();
     HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,data);
-    HAL_FLASH_Lock();
+    //HAL_FLASH_Lock();
 }
 
 
@@ -120,30 +120,12 @@ int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len)
     HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, data);
     *id = rx_header.StdId;
     *len = rx_header.DLC;
-
-    // sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
-    // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    // for (uint8_t i=0; i < rx_header.DLC; i++) {
-    //   sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
-    //   HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    // }  
     return 1;
-    /* Example:
-    CAN MSG RCVD:0x771 0xf823f001 len: 5
-    data: 0xc 0x90 0x1 0xcc 0x74 0x0 0x0 0x0
-    This message is sent for BARO: 29.90.
-    0xcc 0x74 makes sense: [hex(x) for x in struct.unpack('B'*4, struct.pack('I', 29900))]
-    0x0c  Same for difference messages
-    0x90
-    0x01  These two bytes are the message ID (0x190)
-    Spec would lead me to expect and index and and function code, but don't seem them...
-    Not sure what the first 3 bytes are. I think they should be Node, Index, and function code
-    */
-
   } else {
     return 0;
   }
 }
+
 
 void SystemClock_Config(void)
 {
@@ -239,8 +221,27 @@ do_jump(uint32_t stacktop, uint32_t entrypoint)
 
 #define APP_START_ADDRESS 0x8008000U
 
+
+typedef enum statetype {
+  IDLE,
+  UPDATE_FW_SET_ADDR,
+  UPDATE_FW_UPDATE_FLASH,
+  DO_JUMP
+} statetype;
+
 int main(void) {
   
+  statetype state = IDLE;
+  uint32_t canid;
+  uint8_t canmsglen;
+  uint8_t candata[8];
+  uint8_t hostnode;
+  uint8_t channel;
+
+  uint32_t flash_addr;
+  uint32_t flash_len;
+  uint32_t flash_ctr;
+
   HAL_Init();
   SystemClock_Config();
 
@@ -261,16 +262,84 @@ int main(void) {
   // buf[3] = *(((uint8_t*)fun_ptr) + 3);
   
   //*fp = (func_type)0x8017ae0;
-  send_can_msg(0x123, buf, 4);
+  //send_can_msg(0x123, buf, 4);
 
   while (1) {
-    for (int i=0; i < 5; i++) {
-      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-      HAL_Delay(1000);
-      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-      HAL_Delay(1000);
+    switch (state) {
+      case IDLE:
+        if (HAL_GetTick() > 10000) {
+          state = DO_JUMP;
+          break;
+        }
+        if (CAN_rx(&canid, candata, &canmsglen)) {
+          if ((canid >= CANFIX_NODE_MSGS_OFFSET) && (canid <= (CANFIX_NODE_MSGS_OFFSET+256)) &&
+                (candata[0] == CANFIX_CONTROLCODE_UPDATE_FW) && 
+                (candata[1] == CANFIX_NODE_ID) &&
+                (canmsglen == 5)) {
+            // Update Firmware command.  Reply and change state
+            HAL_FLASH_Unlock();
+            FLASH_Erase_Sector(FLASH_SECTOR_2,VOLTAGE_RANGE_3);
+            channel = candata[4];
+            hostnode = canid - CANFIX_NODE_MSGS_OFFSET;
+            candata[1] = hostnode;
+            candata[2] = 0x0;
+            send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, candata, 3);
+            state = UPDATE_FW_SET_ADDR;
+          }
+        }
+        break;
+      case UPDATE_FW_SET_ADDR:
+        if (CAN_rx(&canid, candata, &canmsglen)) {
+          if ((canid == (CANFIX_TWOWAY_MSGS_OFFSET + channel*2)) && (canmsglen == 8)) {
+            flash_addr = *((uint32_t*)candata);
+            flash_len = *(((uint32_t*)candata) + 1);
+            if ((flash_addr ==0) && (flash_len == 0)) {
+              // We're done. Go ahead and jump
+              HAL_FLASH_Lock();
+              candata[0] = 0x3;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+              state = DO_JUMP;  
+            } else {
+              flash_ctr = 0;
+              candata[0] = 0x0;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+              state = UPDATE_FW_UPDATE_FLASH;
+            }
+          }
+        }
+        break;
+      case UPDATE_FW_UPDATE_FLASH:
+        if (CAN_rx(&canid, candata, &canmsglen)) {
+          if ((canid == (CANFIX_TWOWAY_MSGS_OFFSET + channel*2)) && (canmsglen == 8)) {
+            // write to flash
+            flash_write(flash_addr + flash_ctr, *((uint32_t*)candata));
+            flash_write(flash_addr + flash_ctr + 4, *(((uint32_t*)candata) + 1));
+            // Update ctr
+            flash_ctr += 8;
+            if (flash_ctr >= flash_len) {
+              // Written everthing in this section. Acknowledge and change state to SET_ADDR
+              candata[0] = 0x2;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+              state = UPDATE_FW_SET_ADDR;
+            } else {
+              // acknowledge receipt of frame, stay in same state
+              candata[0] = 0x1;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+            }
+          }
+        }
+        break;
+      case DO_JUMP:
+        const uint32_t *app_base = (const uint32_t *)(APP_START_ADDRESS);
+        do_jump(app_base[0], app_base[1]);
+        break;
     }
-    
+      //HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+      //HAL_Delay(1000);
+      //HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+      //HAL_Delay(1000);
+  
+  
     //HAL_DeInit();
       /* Disable all interrupts */
     //RCC->CIR = 0x00000000;
@@ -278,14 +347,14 @@ int main(void) {
     //(*fun_ptr)();
     //((void (*)(void))0x8017ae0)();
 
-    const uint32_t *app_base = (const uint32_t *)(APP_START_ADDRESS);
-    do_jump(app_base[0], app_base[1]);
-
-    for (int i=0; i < 5; i++) {
-      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-      HAL_Delay(500);
-      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-      HAL_Delay(500);
-    }
+    //const uint32_t *app_base = (const uint32_t *)(APP_START_ADDRESS);
+    //do_jump(app_base[0], app_base[1]);
+//
+    //for (int i=0; i < 5; i++) {
+    //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+    //  HAL_Delay(500);
+    //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+    //  HAL_Delay(500);
+    //}
   }
 }

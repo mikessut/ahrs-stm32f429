@@ -106,8 +106,8 @@
 /*!< Uncomment the following line if you need to relocate your vector Table in
      Internal SRAM. */
 /* #define VECT_TAB_SRAM */
-#define VECT_TAB_OFFSET  0x00 /*!< Vector Table base offset field. 
-                                   This value must be a multiple of 0x200. */
+//#define VECT_TAB_OFFSET  0x00 /*!< Vector Table base offset field. 
+//                                   This value must be a multiple of 0x200. */
 /******************************************************************************/
 
 /**
@@ -163,7 +163,6 @@ const uint8_t APBPrescTable[8]  = {0, 0, 0, 0, 1, 2, 3, 4};
   * @param  None
   * @retval None
   */
-//#define FLASH_BASE 0x08008000UL
 void SystemInit(void)
 {
   /* FPU settings ------------------------------------------------------------*/
