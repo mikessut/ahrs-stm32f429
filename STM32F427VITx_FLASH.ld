@@ -63,7 +63,8 @@ MEMORY
 {
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 192K
 CCMRAM (rw)      : ORIGIN = 0x10000000, LENGTH = 64K
-FLASH (rx)      : ORIGIN = 0x8008000, LENGTH = 2016K  /* 2048 is full size */
+/* Use fewer sectors.  Starting at sector 5 they are 128 kbytes */
+FLASH (rx)      : ORIGIN = 0x8020000, LENGTH = 896K  /* 2048 is full size */
 }
 
 /* Define output sections */

@@ -219,11 +219,12 @@ do_jump(uint32_t stacktop, uint32_t entrypoint)
         : : "r"(stacktop), "r"(entrypoint) :);
 }
 
-#define APP_START_ADDRESS 0x8008000U
+#define APP_START_ADDRESS 0x8020000U
 
 
 typedef enum statetype {
   IDLE,
+  ERASE_SECTOR,
   UPDATE_FW_SET_ADDR,
   UPDATE_FW_UPDATE_FLASH,
   DO_JUMP
@@ -242,6 +243,10 @@ int main(void) {
   uint32_t flash_len;
   uint32_t flash_ctr;
 
+  uint8_t led;
+  uint32_t ticks;
+  uint16_t led_delay = 500;
+
   HAL_Init();
   SystemClock_Config();
 
@@ -251,18 +256,9 @@ int main(void) {
 
   HAL_Delay(1000);
 
-  //typedef void (*func_ptr_type)(void);
-  //typedef void (func_type)(void);
-  //func_ptr_type fp;
-  //func_ptr_type fun_ptr = (void(*)())0x8008004;
-  uint8_t buf[4] = {1,2,3,4};
-  // buf[0] = *((uint8_t*)fun_ptr);
-  // buf[1] = *(((uint8_t*)fun_ptr) + 1);
-  // buf[2] = *(((uint8_t*)fun_ptr) + 2);
-  // buf[3] = *(((uint8_t*)fun_ptr) + 3);
-  
-  //*fp = (func_type)0x8017ae0;
-  //send_can_msg(0x123, buf, 4);
+  led = 1;
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+  ticks = HAL_GetTick();
 
   while (1) {
     switch (state) {
@@ -277,14 +273,30 @@ int main(void) {
                 (candata[1] == CANFIX_NODE_ID) &&
                 (canmsglen == 5)) {
             // Update Firmware command.  Reply and change state
+            led_delay = 250;
             HAL_FLASH_Unlock();
-            FLASH_Erase_Sector(FLASH_SECTOR_2,VOLTAGE_RANGE_3);
             channel = candata[4];
             hostnode = canid - CANFIX_NODE_MSGS_OFFSET;
             candata[1] = hostnode;
             candata[2] = 0x0;
             send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, candata, 3);
-            state = UPDATE_FW_SET_ADDR;
+            state = ERASE_SECTOR;
+          }
+        }
+        break;
+      case ERASE_SECTOR:
+        if (CAN_rx(&canid, candata, &canmsglen)) {
+          if ((canid == (CANFIX_TWOWAY_MSGS_OFFSET + channel*2)) && (canmsglen == 1)) {
+            if (candata[0] == 0xff) {
+              // msg indicates done erasing, jump to update_FW_SET_ADDR
+              candata[0] = 0x2;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+              state = UPDATE_FW_SET_ADDR;
+            } else {
+              FLASH_Erase_Sector(FLASH_SECTOR_0 + candata[0],VOLTAGE_RANGE_3);
+              candata[0] = 0x1;
+              send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+            }
           }
         }
         break;
@@ -296,12 +308,13 @@ int main(void) {
             if ((flash_addr ==0) && (flash_len == 0)) {
               // We're done. Go ahead and jump
               HAL_FLASH_Lock();
-              candata[0] = 0x3;
+              candata[0] = 0x6;
               send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
+              HAL_Delay(1000);
               state = DO_JUMP;  
             } else {
               flash_ctr = 0;
-              candata[0] = 0x0;
+              candata[0] = 0x3;
               send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
               state = UPDATE_FW_UPDATE_FLASH;
             }
@@ -318,12 +331,12 @@ int main(void) {
             flash_ctr += 8;
             if (flash_ctr >= flash_len) {
               // Written everthing in this section. Acknowledge and change state to SET_ADDR
-              candata[0] = 0x2;
+              candata[0] = 0x5;
               send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
               state = UPDATE_FW_SET_ADDR;
             } else {
               // acknowledge receipt of frame, stay in same state
-              candata[0] = 0x1;
+              candata[0] = 0x4;
               send_can_msg(CANFIX_TWOWAY_MSGS_OFFSET + channel*2 + 1, candata, 1);
             }
           }
@@ -334,27 +347,17 @@ int main(void) {
         do_jump(app_base[0], app_base[1]);
         break;
     }
-      //HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-      //HAL_Delay(1000);
-      //HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-      //HAL_Delay(1000);
-  
-  
-    //HAL_DeInit();
-      /* Disable all interrupts */
-    //RCC->CIR = 0x00000000;
 
-    //(*fun_ptr)();
-    //((void (*)(void))0x8017ae0)();
-
-    //const uint32_t *app_base = (const uint32_t *)(APP_START_ADDRESS);
-    //do_jump(app_base[0], app_base[1]);
-//
-    //for (int i=0; i < 5; i++) {
-    //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-    //  HAL_Delay(500);
-    //  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
-    //  HAL_Delay(500);
-    //}
+    // LED handler
+    if ((HAL_GetTick() - ticks) > led_delay) {
+      if (led) {
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        led = 0;
+      } else {
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+        led = 1;
+      }
+      ticks = HAL_GetTick();
+    }
   }
 }
