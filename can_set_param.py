@@ -49,6 +49,7 @@ PARAMS = {
     'Q3': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 18, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'STATUS': {'struct_pack': lambda x: struct.pack('B', int(x, 0)),  'byte2': 19, 'struct_unpack': lambda x: struct.unpack('B', x)},
     'DPRESS': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 20, 'struct_unpack': lambda x: struct.unpack('f', x)},
+    'HEADING': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 21,}, # write only
     
 }
 

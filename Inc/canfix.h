@@ -132,6 +132,7 @@ class Kalman;
 #define CANFIX_CONTROLCODE_CFG_SET         9
 #define CANFIX_CONTROLCODE_CFG_QRY        10
 #define CANFIX_CONTROLCODE_NODE_DESC      11
+// The CFG set command has 12-19 as control codes for indexing
 #define CANFIX_CONTROLCODE_PARAM_SET_MIN  12
 #define CANFIX_CONTROLCODE_PARAM_SET_MAX  19
 
@@ -161,6 +162,10 @@ class Kalman;
 // 7:  reset
 #define CANFIX_CFG_KEY_STATUS       19  // uint8_t
 #define CANFIX_CFG_KEY_DPRESS       20  // float pressure offset
+// Write only parameter to set the heading explicitly.  
+// This is probably only useful/interesting for debug purposes 
+// (perhaps with mag updates off in STATUS byte).
+#define CANFIX_CFG_KEY_HEADING      21  // float
 
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,

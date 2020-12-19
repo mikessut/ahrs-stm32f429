@@ -16,6 +16,8 @@ extern float temperature; // degC
 extern float wb[3];
 extern float ab[3];
 
+extern Kalman k;
+
 int send_canfix_msg(uint32_t msg_id, uint32_t msg) 
 {
   return send_canfix_msg(msg_id, 0, (uint8_t*)&msg, 4);
@@ -130,6 +132,10 @@ int rx_canfix_msgs() {
           canfix_cfg_set(&status, 0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] == CANFIX_CFG_KEY_DPRESS) && (len == 7)) {
           canfix_cfg_set(&dpress_offset, 0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
+        } else if ((data[2] == CANFIX_CFG_KEY_HEADING) && (len == 7)) {
+          k.set_heading((*((float*)&data[3])) * M_PI / 180.0);
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
         // Configure query messages

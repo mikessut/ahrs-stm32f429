@@ -62,6 +62,7 @@ float temperature = 25; // degC
 float wb[3] = {0, 0, 0};
 float ab[3] = {0, 0, 0};
 
+Kalman k;
 
 /**
   * @brief  The application entry point.
@@ -74,7 +75,7 @@ int main(void)
   float abs_press_temp, diff_press_temp;
   float tas = 0;
   float ias, altitude, vs;
-  Kalman k;
+  
   float w[3];
   float a[3];
   float m[3];
