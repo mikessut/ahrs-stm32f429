@@ -6,7 +6,7 @@ c_float_p = ctypes.POINTER(ctypes.c_float)
 
 class KalmanCpp:
 
-    NSTATES = 10
+    NSTATES = 16
 
     def __init__(self):
         self.clib = ctypes.CDLL('./build/libkalman.so')
@@ -50,6 +50,10 @@ class KalmanCpp:
             return self.state_vec()[:4].flatten()
         elif val == 'P':
             return self.get_P()
+        elif val == 'wb':
+            return self.state_vec()[10:13].flatten()
+        elif val == 'ab':
+            return self.state_vec()[13:16].flatten()
     
     def state_vec(self):
         p = self.clib.state_ptr(ctypes.c_voidp(self.ptr)) 

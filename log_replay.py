@@ -64,8 +64,8 @@ class DataReader:
         return np.array([self.CAN_AX, self.CAN_AY, self.CAN_AZ])
 
     def w(self):
-        if (max(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t) - min(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)) > .005:
-            raise ValueError("dt off")
+        if (max(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t) - min(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)) > .01:
+            raise ValueError(f"dt off; max t: {max(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)} min: {min(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)} delta: {max(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t) - min(self.CAN_WX_t, self.CAN_WY_t, self.CAN_WZ_t)}")
         return np.array([self.CAN_WX, self.CAN_WY, self.CAN_WZ])
 
     def m(self):
@@ -89,16 +89,23 @@ class DataReader:
                 bus.send(msg)
 
 
-def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf):
+def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf, dt_sim, 
+                init_heading_deg=None, mag_update: bool=True):
     if run_kf:
+        print("Running local KF")
         kf = kalman_cpp.KalmanCpp()
+        if init_heading_deg is not None:
+            kf.set_heading(init_heading_deg)
         #for _ in range(400):
         #    kf.predict(dt, data.CANFIX_TAS * KTS2MS)
         #    kf.update_accel(data.a())
         #    kf.update_gyro(data.w() * 2)  #  + np.array([0, -.5, 0])*np.pi/180)
         #    mag = data.m_compensation(mag_bias, mag_sfs, *mag_abc)
         #    kf.update_mag(mag)
+    else:
+        print("Replaying recorded KF.")
 
+    t = 0
     while run_bool.is_set():
         while pause_bool.is_set():
             time.sleep(.1)
@@ -114,17 +121,24 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf):
         if run_kf:
             kf.predict(dt, data.CANFIX_TAS * KTS2MS)
             kf.update_accel(data.a())
-            kf.update_gyro(data.w() * 2)  #  + np.array([0, -.5, 0])*np.pi/180)
-            mag = data.m_compensation(mag_bias, mag_sfs, *mag_abc)
-            kf.update_mag(mag)
+            #data.CAN_WY = 0.
+            #data.CAN_AX = 0.
+            kf.update_gyro(data.w())
+            if mag_update:
+                mag = data.m_compensation(mag_bias, mag_sfs, *mag_abc)
+                kf.update_mag(mag)
             es = kf.eulers()*180/np.pi  #roll, pitch, heading
             data.CANFIX_ROLL = es[0]
             data.CANFIX_PITCH = es[1]
             data.CANFIX_HEAD = es[2] + 360 if es[2] < 0 else es[2]
+            data.CANFIX_TURNRATE = kf.turn_rate()*180/np.pi
             for n, xyz in zip(range(3), 'XYZ'):
                 setattr(data, f'CAN_KF_A{xyz}', kf.a[n])
                 setattr(data, f'CAN_KF_W{xyz}', kf.w[n])
-                setattr(data, f'CAN_MAG{xyz}', mag[n])
+                setattr(data, f'CAN_KF_WB{xyz}', kf.wb[n])
+                setattr(data, f'CAN_KF_AB{xyz}', kf.ab[n])
+                if mag_update:
+                    setattr(data, f'CAN_MAG{xyz}', mag[n])
             
         data.CAN_xmit(bus)
 
@@ -132,8 +146,9 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf):
         #dt = data.CAN_AX_t - t
         #t = data.CAN_AX_t
         #sys.stdout.write(f"{dt:.3f}        \r")
-        #sys.stdout.write(f"{ctr:10d}        \r")
-        time.sleep(dt)
+        t += dt
+        sys.stdout.write(f"{t:9.1f}        \r")
+        time.sleep(dt_sim)
         #ctr += 1
 
 
@@ -142,8 +157,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fn', help="candump log created with candump -l")
     parser.add_argument('-o', '--offset', help="Time offset", type=float, default=0)
-    parser.add_argument('-dt', default=.027, type=float)
+    parser.add_argument('-dt', default=.029, type=float)
     parser.add_argument('-kf', default=False, action='store_true', help="Run local Kalman filter")
+    parser.add_argument('-dts', default=None, type=float, help='Simulation dt')
+    parser.add_argument('--no-mag', default=False, action='store_true')
+    parser.add_argument('--init-heading', type=float, default=None)
     args = parser.parse_args()
     
     data = DataReader(args.fn)
@@ -161,7 +179,11 @@ if __name__ == '__main__':
     pause_bool = threading.Event()
     pause_bool.clear()
 
-    thread = threading.Thread(target=replay_func, args=(run_bool, pause_bool, data, bus, args.dt, args.kf))
+    # def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf, dt_sim, 
+    #            init_heading_deg=None, mag_update: bool=True):
+    thread = threading.Thread(target=replay_func, args=(run_bool, pause_bool, data, bus, args.dt, args.kf,
+                                                        args.dt if args.dts is None else args.dts,
+                                                        args.init_heading, not args.no_mag))
     thread.start()
 
     while True:

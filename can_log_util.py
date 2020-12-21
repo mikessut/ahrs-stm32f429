@@ -39,6 +39,9 @@ class DataHolder:
     t = getattr(self, keys[0])[0]
     return t, tuple(np.interp(t, *getattr(self, k)) for k in keys)
 
+  def __repr__(self):
+    return f"<DataHolder Contains data for {self.log_keys}>"
+
 
 def normal_msgs(fn, msg_list, t0=0):
   #alldata = DataHolder(['CAN_MAGX', 'CAN_MAGY', 'CAN_MAGZ'], t0 = 1607189183.264231)

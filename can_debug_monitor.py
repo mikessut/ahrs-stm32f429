@@ -50,6 +50,7 @@ MSGS = {
     0x190: {'name': 'CANFIX_ALT_SET', 'disp': (19, 15),   'unpack_func': lambda x: struct.unpack('H', x[3:])[0] / 1000, 'pack_func': lambda x: struct.pack('H', int(x*1000))},
     0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15),       'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100,  'pack_func': lambda x: struct.pack('h', int(x*100))},
     0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3),    'unpack_func': lambda x: struct.unpack('h', x[3:])[0],        'pack_func': lambda x: struct.pack('h', int(x))},
+    0x403: {'name': 'CANFIX_TURNRATE', 'disp': (18, 15),  'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('h', int(x*10))},
 }
 
 
