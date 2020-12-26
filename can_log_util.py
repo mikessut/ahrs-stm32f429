@@ -10,7 +10,7 @@ import struct
 
 class DataHolder:
 
-  def __init__(self, log_keys: list, t0=0):
+  def __init__(self, log_keys: list, t0=None):
     self.data = {}
     self.log_keys = log_keys
     self.t0 = t0
@@ -20,6 +20,8 @@ class DataHolder:
       return
     if key not in self.data.keys():
       self.data[key] = [[t], [value]]
+      if self.t0 is None:
+        self.t0 = t
     else:
       self.data[key][0].append(t)
       self.data[key][1].append(value)
@@ -43,24 +45,26 @@ class DataHolder:
     return f"<DataHolder Contains data for {self.log_keys}>"
 
 
-def normal_msgs(fn, msg_list, t0=0):
+def normal_msgs(fn, msg_list, t0=None):
   #alldata = DataHolder(['CAN_MAGX', 'CAN_MAGY', 'CAN_MAGZ'], t0 = 1607189183.264231)
   alldata = DataHolder(msg_list, t0=t0)
   # fn = 'logs/candump-2020-12-05_102623.log'
   with open(fn, 'r') as fid:
       line = fid.readline().strip()
       while len(line) > 0:
+        cols = line.split()
         t = float(line[1:18])
-        msg_id = int(line[25:28], 16)
+        msg_id = int(cols[2][:3], 16)
+        #print(line, line[25:28], msg_id)
         if msg_id in MSGS.keys():
-          data = bytes.fromhex(line[29:])
+          data = bytes.fromhex(cols[2][4:])
           val = MSGS[msg_id].get('unpack_func', lambda x:struct.unpack('f', x)[0])(data)
           alldata.append(MSGS[msg_id]['name'], t, val)
         line = fid.readline().strip()
   return alldata
 
 
-def cfg_msgs(fn, msg_list, t0=0):
+def cfg_msgs(fn, msg_list, t0=None):
   # cfg messages
   alldata = DataHolder(msg_list, t0=t0)
 

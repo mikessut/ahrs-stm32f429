@@ -93,6 +93,7 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf, dt
                 init_heading_deg=None, mag_update: bool=True):
     if run_kf:
         print("Running local KF")
+        #import pdb; pdb.set_trace()
         kf = kalman_cpp.KalmanCpp()
         if init_heading_deg is not None:
             kf.set_heading(init_heading_deg)
@@ -119,6 +120,7 @@ def replay_func(run_bool: threading.Event, pause_bool, data, bus, dt, run_kf, dt
         #data.CAN_HEAD_VEC_Y = sensor_heading[1]
 
         if run_kf:
+            #import pdb; pdb.set_trace()
             kf.predict(dt, data.CANFIX_TAS * KTS2MS)
             kf.update_accel(data.a())
             #data.CAN_WY = 0.

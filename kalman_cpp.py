@@ -51,9 +51,15 @@ class KalmanCpp:
         elif val == 'P':
             return self.get_P()
         elif val == 'wb':
-            return self.state_vec()[10:13].flatten()
+            if self.NSTATES == 16:
+                return self.state_vec()[10:13].flatten()
+            else:
+                return np.nan*np.ones((3, ))
         elif val == 'ab':
-            return self.state_vec()[13:16].flatten()
+            if self.NSTATES == 16:
+                return self.state_vec()[13:16].flatten()
+            else:
+                return np.nan*np.ones((3, ))
     
     def state_vec(self):
         p = self.clib.state_ptr(ctypes.c_voidp(self.ptr)) 

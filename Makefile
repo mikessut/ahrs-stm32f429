@@ -220,7 +220,7 @@ $(BUILD_DIR):
 # run on STM32. Only for debugging on build machine.)
 #######################################
 
-build/kalman_pic.o: Src/kalman.cpp
+build/kalman_pic.o: Src/kalman.cpp Inc/kalman.h
 	g++ $(CPPFLAGS) -I$(EIGEN_INCLUDE_DIR) -IInc -c -fpic Src/kalman.cpp -o build/kalman_pic.o
 
 python: build/kalman_pic.o

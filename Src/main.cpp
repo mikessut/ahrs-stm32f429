@@ -35,6 +35,9 @@
 #include "stm32f4xx_hal.h"
 #include "utils.h"
 
+// dt for EKF predict
+#define EKF_DT 0.0340673
+
 #define ACCEL_SF 0.061/1000.0*9.81   // convert to m/s2
 #define GYRO_SF 4.375/1000.0*3.141592653589793/180.0   // convert to rad/sec
 #define MAG_SF  1.0/6842*100               // convert to uT
@@ -204,13 +207,19 @@ int main(void)
         canfix_cfg_qry(0, wb[i], CANFIX_CFG_KEY_W_X + i);
       for (int i=0; i < 3; i++) 
         canfix_cfg_qry(0, ab[i], CANFIX_CFG_KEY_A_X + i);
+
+      // set offsets in EKF
+      for (int i=0; i < 3; i++) {
+        k.x(I_WBX+i) = wb[i];
+        k.x(I_ABX+i) = ab[i];
+      }
     }
 
     // apply offsets (caution: this is in rotated frame)
-    for (int i=0; i < 3; i++) {
-      a[i] -= ab[i];
-      w[i] -= wb[i];
-    }
+    // for (int i=0; i < 3; i++) {
+    //   a[i] -= ab[i];
+    //   w[i] -= wb[i];
+    // }
 
     // apply hard iron compensation
     for (int i=0; i < 3; i++)
@@ -230,7 +239,7 @@ int main(void)
     //dt = (HAL_GetTick() - tick_ctr)*1e-3;
     dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20
     tick_ctr = HAL_GetTick();
-    k.predict(.027, tas*K2ms);
+    k.predict(EKF_DT, tas*K2ms);
     //k.update_accel(Vector3f(ax, ay, az));
     k.update_accel(Vector3f(Map<Vector3f>(a)));
     k.update_gyro(Vector3f(Map<Vector3f>(w)));

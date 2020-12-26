@@ -226,6 +226,11 @@ void can_debug(Kalman *k, float *a, float *w, float *m,
 
     send_can_msg(CAN_MAGX+i, (uint8_t*)(m + i), sizeof(float));
     send_can_msg(CAN_MAGRAWX+i, (uint8_t*)(mraw + i), sizeof(float));
+
+    #ifdef BIAS_STATES
+    send_can_msg(CAN_KF_ABX+i, (uint8_t*)&k->x(I_ABX+i), sizeof(float));
+    send_can_msg(CAN_KF_WBX+i, (uint8_t*)&k->x(I_WBX+i), sizeof(float));
+    #endif
   }
   send_can_msg(CAN_PRESSA, (uint8_t*)abs_press, sizeof(float));
   send_can_msg(CAN_PRESSD, (uint8_t*)diff_press, sizeof(float));

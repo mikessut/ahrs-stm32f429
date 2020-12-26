@@ -15,21 +15,21 @@ MSGS = {
     0x600: {'name': 'CAN_KF_WX', 'disp': (1, 15    ), 'sf': 180/np.pi},      
     0x601: {'name': 'CAN_KF_WY', 'disp': (1, 15+9  ), 'sf': 180/np.pi},      
     0x602: {'name': 'CAN_KF_WZ', 'disp': (1, 15+2*9), 'sf': 180/np.pi},      
-    0x603: {'name': 'CAN_KF_WBX', 'disp': (0, 0), 'sf': 180/np.pi},     
-    0x604: {'name': 'CAN_KF_WBY', 'disp': (0, 0), 'sf': 180/np.pi},     
-    0x605: {'name': 'CAN_KF_WBZ', 'disp': (0, 0), 'sf': 180/np.pi},     
-    0x606: {'name': 'CAN_KF_AX', 'disp': (5, 15    )},      
-    0x607: {'name': 'CAN_KF_AY', 'disp': (5, 15+9  )},      
-    0x608: {'name': 'CAN_KF_AZ', 'disp': (5, 15+2*9)},      
-    0x609: {'name': 'CAN_KF_ABX', 'disp': (0, 0)},     
-    0x60A: {'name': 'CAN_KF_ABY', 'disp': (0, 0)},     
-    0x60B: {'name': 'CAN_KF_ABZ', 'disp': (0, 0)},     
+    0x603: {'name': 'CAN_KF_WBX', 'disp': (2, 15), 'sf': 180/np.pi},     
+    0x604: {'name': 'CAN_KF_WBY', 'disp': (2, 15+9), 'sf': 180/np.pi},     
+    0x605: {'name': 'CAN_KF_WBZ', 'disp': (2, 15+2*9), 'sf': 180/np.pi},     
+    0x606: {'name': 'CAN_KF_AX', 'disp': (5, 15    ), 'sf': 1/9.81},
+    0x607: {'name': 'CAN_KF_AY', 'disp': (5, 15+9  ), 'sf': 1/9.81},
+    0x608: {'name': 'CAN_KF_AZ', 'disp': (5, 15+2*9), 'sf': 1/9.81},
+    0x609: {'name': 'CAN_KF_ABX', 'disp': (6, 15), 'sf': 1/9.81},
+    0x60A: {'name': 'CAN_KF_ABY', 'disp': (6, 15+9), 'sf': 1/9.81},
+    0x60B: {'name': 'CAN_KF_ABZ', 'disp': (6, 15+2*9), 'sf': 1/9.81},
     0x60C: {'name': 'CAN_WX', 'disp': (0, 15    ), 'sf': 180/np.pi},         
     0x60D: {'name': 'CAN_WY', 'disp': (0, 15+9  ), 'sf': 180/np.pi},         
     0x60E: {'name': 'CAN_WZ', 'disp': (0, 15+2*9), 'sf': 180/np.pi},         
-    0x60F: {'name': 'CAN_AX', 'disp': (4, 15    )},         
-    0x610: {'name': 'CAN_AY', 'disp': (4, 15+9  )},         
-    0x611: {'name': 'CAN_AZ', 'disp': (4, 15+2*9)},         
+    0x60F: {'name': 'CAN_AX', 'disp': (4, 15    ), 'sf': 1/9.81},         
+    0x610: {'name': 'CAN_AY', 'disp': (4, 15+9  ), 'sf': 1/9.81},         
+    0x611: {'name': 'CAN_AZ', 'disp': (4, 15+2*9), 'sf': 1/9.81},         
     0x612: {'name': 'CAN_MAGX', 'disp': (8, 15    )},       
     0x613: {'name': 'CAN_MAGY', 'disp': (8, 15+9  )},       
     0x614: {'name': 'CAN_MAGZ', 'disp': (8, 15+2*9)},  
@@ -135,9 +135,11 @@ if __name__ == '__main__':
     # setup screen
     screen.addstr(0, 0, 'Raw gyros (dps)')
     screen.addstr(1, 0, 'KF gyros (dps)')
+    screen.addstr(2, 0, 'KF gyros bias (dps)')
 
-    screen.addstr(4, 0, 'Raw accels')
+    screen.addstr(4, 0, 'Raw accels (g)')
     screen.addstr(5, 0, 'KF accels')
+    screen.addstr(6, 0, 'KF accel bias')
 
     screen.addstr(8, 0, 'Raw mag')
 
