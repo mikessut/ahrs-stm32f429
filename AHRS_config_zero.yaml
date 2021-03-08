@@ -27,9 +27,9 @@ SOFT_IRONC: 0.0
 # SOFT_IRONB: .0014202971850985726
 # SOFT_IRONC: -0.019349176384170465
 
-ABX: 0.0
-ABY: 0.0
-ABZ: 0.0
+#ABX: 0.0
+#ABY: 0.0
+#ABZ: 0.0
 
 # Orientation quaternion as float
 # 2.7 pitch

@@ -134,10 +134,12 @@ int main(void)
 
   HAL_Delay(1500);
 
-  // while (1) {
-  //   HAL_Delay(100);
-  //   read_gps();
-  // }
+  float lat, lng;
+  uint16_t gps_track; // 10ths degree
+  while (1) {
+    HAL_Delay(100);
+    read_gps(&lat, &lng, &gps_track);
+  }
 
   while (1)
   {

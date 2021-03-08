@@ -52,3 +52,9 @@ sudo ip link set up vcan0
 canplayer vcan0=can0 -I logs/candump-2020-12-06_183555.log
 awk '{if (substr($1, 2, 17) > 1607190440) { print $0}}' candump-2020-12-05_102623.log | canplayer vcan0=can0
 ```
+
+## Using CAN-FIX-Utility to flash
+
+```
+python3 cfutil.py --channel=can0 --firmware-file ~/ahrs-stm32f429/build/ahrs-stm32f429.hex --target-node=0x12 --device-type=0xb4 --device-model=0x01  --device-version=0x01 --node=1
+```
