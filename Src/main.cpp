@@ -134,12 +134,12 @@ int main(void)
 
   HAL_Delay(1500);
 
-  float lat, lng;
-  uint16_t gps_track; // 10ths degree
-  while (1) {
-    HAL_Delay(100);
-    read_gps(&lat, &lng, &gps_track);
-  }
+  float lat, lng, spd;
+  uint16_t gps_track = 0; // 10ths degree
+  // while (1) {
+  //   HAL_Delay(100);
+  //   read_gps(&gps_track);
+  // }
 
   while (1)
   {
@@ -236,7 +236,8 @@ int main(void)
     m[2] = soft_iron[4]*mraw[0] + soft_iron[5]*mraw[1] + soft_iron[2]*mraw[2];
 
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-    HAL_Delay(1);
+    //HAL_Delay(1);
+    read_gps(&lat, &lng, &gps_track, &spd);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
     //dt = (HAL_GetTick() - tick_ctr)*1e-3;
     dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20

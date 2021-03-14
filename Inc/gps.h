@@ -4,4 +4,4 @@
 #include "main.h"
 
 
-void read_gps(float* lat, float* lng, uint16_t* head);
+void read_gps(float* lat, float* lng, uint16_t* head, float* spd);
