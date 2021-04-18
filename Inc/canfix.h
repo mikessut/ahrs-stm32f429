@@ -83,6 +83,13 @@ class Kalman;
 #define CANFIX_ALT_SET        0x190
 #define CANFIX_PALT           0x191  // ?
 
+// GPS
+#define CANFIX_LATITUDE       0x1C3
+#define CANFIX_LONGITUDE      0x1C4
+#define CANFIX_GND_SPD        0x1C5
+#define CANFIX_TRUE_GND_TRACK 0x1C6
+#define CANFIX_MAG_GND_TRACK  0x1C7
+
 // Kalman Filter debug
 #define CAN_KF_WX             0x600
 #define CAN_KF_WY             0x601
@@ -159,6 +166,8 @@ class Kalman;
 #define CANFIX_CFG_KEY_Q3           18
 // Bit
 // 0:  mag update
+// 1:  heading update from gps
+// 2:  GPS speed instead of airspeed
 // 7:  reset
 #define CANFIX_CFG_KEY_STATUS       19  // uint8_t
 #define CANFIX_CFG_KEY_DPRESS       20  // float pressure offset
@@ -179,7 +188,8 @@ int send_canfix_msg(uint32_t msg_id, uint8_t status, uint8_t *msg, int msglen);
 int send_canfix_msg(uint32_t msg_id, uint32_t);
 int send_canfix_msg(uint32_t msg_id, int32_t);
 int send_canfix_msg(uint32_t msg_id, uint16_t);
-int send_canfix_msg(uint32_t msg_id, int16_t msg); 
+int send_canfix_msg(uint32_t msg_id, int16_t msg);
+int send_canfix_msg(uint32_t msg_id, float val);
 int send_canfix_msgs(Kalman *k, float *ias, float *tas, float *altitude, float *vs, float *ay);
 
 // CANFIX Node Specific support functions

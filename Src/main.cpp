@@ -134,7 +134,8 @@ int main(void)
 
   HAL_Delay(1500);
 
-  float lat, lng, spd;
+  float lat, lng;
+  float spd = 11.0;  // TODO: initialize
   uint16_t gps_track = 0; // 10ths degree
   // while (1) {
   //   HAL_Delay(100);
@@ -235,13 +236,14 @@ int main(void)
     m[1] = soft_iron[3]*mraw[0] + soft_iron[1]*mraw[1] + soft_iron[5]*mraw[2];
     m[2] = soft_iron[4]*mraw[0] + soft_iron[5]*mraw[1] + soft_iron[2]*mraw[2];
 
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-    //HAL_Delay(1);
-    read_gps(&lat, &lng, &gps_track, &spd);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+
     //dt = (HAL_GetTick() - tick_ctr)*1e-3;
     dt = (HAL_GetTick() - tick_ctr);  // Doesn't seem to be ms as expected. Off by about a factor of 20
     tick_ctr = HAL_GetTick();
+    if (status & 0x4) {
+      tas = spd;
+      ias = spd;
+    }
     k.predict(EKF_DT, tas*K2ms);
     //k.update_accel(Vector3f(ax, ay, az));
     k.update_accel(Vector3f(Map<Vector3f>(a)));
@@ -249,6 +251,21 @@ int main(void)
     if (status & 0x01)
       k.update_mag(Vector3f(Map<Vector3f>(m)));
     //k.update_mag(Vector3f(20, 0, 50)); // always headed north
+
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+    if (read_gps(&lat, &lng, &gps_track, &spd))
+    {
+      if (status & 0x02) 
+      {
+        k.update_gps_bearing(((float)gps_track) / 10.0f * PI / 180.0f);
+      }
+      // send gps info over CANfix
+      send_canfix_msg(CANFIX_LATITUDE, lat);
+      send_canfix_msg(CANFIX_LONGITUDE, lng);
+      send_canfix_msg(CANFIX_MAG_GND_TRACK, gps_track);
+      send_canfix_msg(CANFIX_GND_SPD, (uint16_t)(spd * 10));
+    }
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
     
     
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
@@ -274,13 +291,14 @@ int main(void)
     rx_canfix_msgs();
     #endif
 
+    #ifdef SEND_CANFIX_MSGS
+    send_canfix_msgs(&k, &ias, &tas, &altitude, &vs, &a[1]);
+    #endif
+
     // air data computations
     airspeed_altitude(abs_press, diff_press, baro, temperature,
                       &altitude, &ias, &tas, &vs);
 
-    #ifdef SEND_CANFIX_MSGS
-    send_canfix_msgs(&k, &ias, &tas, &altitude, &vs, &a[1]);
-    #endif
 
     //HAL_Delay(150);
     /* USER CODE END WHILE */

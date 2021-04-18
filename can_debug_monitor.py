@@ -51,6 +51,11 @@ MSGS = {
     0x407: {'name': 'CANFIX_SAT', 'disp': (14, 15),       'unpack_func': lambda x: struct.unpack('h', x[3:])[0] / 100,  'pack_func': lambda x: struct.pack('h', int(x*100))},
     0x186: {'name': 'CANFIX_VS', 'disp': (13, 15+9*3),    'unpack_func': lambda x: struct.unpack('h', x[3:])[0],        'pack_func': lambda x: struct.pack('h', int(x))},
     0x403: {'name': 'CANFIX_TURNRATE', 'disp': (18, 15),  'unpack_func': lambda x: struct.unpack('h', x[3:])[0]/10,     'pack_func': lambda x: struct.pack('h', int(x*10))},
+
+    0x1C3: {'name': 'CANFIX_LATITUDE', 'disp': (20, 15),  'unpack_func': lambda x: struct.unpack('f', x[3:])[0],        },
+    0x1C4: {'name': 'CANFIX_LONGITUDE', 'disp': (20, 15+9),  'unpack_func': lambda x: struct.unpack('f', x[3:])[0],     },
+    0x1C5: {'name': 'CANFIX_GND_SPD', 'disp': (20, 15+9*2),  'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,  },
+    0x1C7: {'name': 'CANFIX_MAG_GND_TRACK', 'disp': (20, 15+9*3),  'unpack_func': lambda x: struct.unpack('H', x[3:])[0]/10,},
 }
 
 

@@ -18,6 +18,11 @@ extern float ab[3];
 
 extern Kalman k;
 
+int send_canfix_msg(uint32_t msg_id, float val)
+{
+  return send_canfix_msg(msg_id, 0, (uint8_t*)&val, 4);
+}
+
 int send_canfix_msg(uint32_t msg_id, uint32_t msg) 
 {
   return send_canfix_msg(msg_id, 0, (uint8_t*)&msg, 4);
@@ -174,12 +179,12 @@ int CAN_rx(uint32_t *id, uint8_t *data, uint8_t *len)
     *id = rx_header.StdId;
     *len = rx_header.DLC;
 
-    sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
-    HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    for (uint8_t i=0; i < rx_header.DLC; i++) {
-      sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
-      HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
-    }  
+    // sprintf((char*)buffer, "CAN MSG RCVD: %d len: %d\r\n", rx_header.StdId, rx_header.DLC);
+    // HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    // for (uint8_t i=0; i < rx_header.DLC; i++) {
+    //   sprintf((char*)buffer, "[%d]: 0x%x\r\n", i, data[i]);
+    //   HAL_UART_Transmit(&huart2, buffer, strlen((char*)buffer), 0xFFFF);
+    // }  
     return 1;
     /* Example:
     CAN MSG RCVD:0x771 0xf823f001 len: 5

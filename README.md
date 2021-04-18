@@ -58,3 +58,10 @@ awk '{if (substr($1, 2, 17) > 1607190440) { print $0}}' candump-2020-12-05_10262
 ```
 python3 cfutil.py --channel=can0 --firmware-file ~/ahrs-stm32f429/build/ahrs-stm32f429.hex --target-node=0x12 --device-type=0xb4 --device-model=0x01  --device-version=0x01 --node=1
 ```
+
+## Debug FW
+
+To set status byte:
+```
+python3 can_set_param.py -c STATUS 0x6
+```
