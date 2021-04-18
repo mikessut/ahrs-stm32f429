@@ -61,7 +61,6 @@ python3 cfutil.py --channel=can0 --firmware-file ~/ahrs-stm32f429/build/ahrs-stm
 
 ## Debug FW
 
-To set status byte:
-```
-python3 can_set_param.py -c STATUS 0x6
-```
+To set status byte: `python3 can_set_param.py -c STATUS 0x6`
+
+Set heading: `python3 can_set_param.py -c HEADING 91`

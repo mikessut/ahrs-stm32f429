@@ -122,6 +122,7 @@ public:
     Q(i, j) = val;
   }
   float get_Q(int i, int j) { return Q(i, j);}
+  float* state_ptr(int i) { return x.data() + i; }
 };
 
 ostream& operator<<(ostream &ofs, const Kalman &k);

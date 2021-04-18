@@ -1,0 +1,29 @@
+# PROC_NOISE0: 0
+# PROC_NOISE1: 0
+# PROC_NOISE2: 0
+# PROC_NOISE3: 0
+
+# Accel constnat
+# g = 9.81
+# PROC_NOISE4: (2*g)**2
+# PROC_NOISE5: (2*g)**2
+# PROC_NOISE6: (4*g)**2
+
+# Body rotation error from coordinated turn
+# PROC_NOISE7: (500*PI/180)**2)
+# PROC_NOISE8: (500*PI/180)**2)
+# PROC_NOISE9: (500*PI/180)**2)
+
+# Gyro Bias 
+# PROC_NOISE10: (.5*PI/180)**2 / 240.0
+# PROC_NOISE11: (.5*PI/180)**2 / 240.0
+# PROC_NOISE12: (.5*PI/180)**2 / 240.0
+
+# Accel Bias
+# PROC_NOISE13: (.1*G)**2 / 240.0
+# PROC_NOISE14: (.1*G)**2 / 240.0
+# PROC_NOISE15: (.1*G)**2 / 240.0
+
+PROC_NOISE13: 0.0
+PROC_NOISE14: 0.0
+PROC_NOISE15: 0.0

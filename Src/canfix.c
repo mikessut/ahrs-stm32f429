@@ -128,9 +128,9 @@ int rx_canfix_msgs() {
         } else if ((data[2] >= CANFIX_CFG_KEY_SOFTIRON_X) && (data[2] <= CANFIX_CFG_KEY_SOFTIRON_C) && (len == 7)) {
           canfix_cfg_set(soft_iron, data[2] - CANFIX_CFG_KEY_SOFTIRON_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 7)) {
-          canfix_cfg_set(wb, data[2] - CANFIX_CFG_KEY_W_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
+          canfix_cfg_set(k.state_ptr(I_WBX), data[2] - CANFIX_CFG_KEY_W_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 7)) {
-          canfix_cfg_set(ab, data[2] - CANFIX_CFG_KEY_A_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
+          canfix_cfg_set(k.state_ptr(I_ABX), data[2] - CANFIX_CFG_KEY_A_X, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 7)) {
           canfix_cfg_set(q, data[2] - CANFIX_CFG_KEY_Q0, data, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0);
         } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 4)) {
@@ -157,9 +157,10 @@ int rx_canfix_msgs() {
         } else if ((data[2] >= CANFIX_CFG_KEY_SOFTIRON_X) && (data[2] <= CANFIX_CFG_KEY_SOFTIRON_C) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), soft_iron[data[2] - CANFIX_CFG_KEY_SOFTIRON_X]);  
         } else if ((data[2] >= CANFIX_CFG_KEY_W_X) && (data[2] <= CANFIX_CFG_KEY_W_Z) && (len == 3)) {
-          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), wb[data[2] - CANFIX_CFG_KEY_W_X]);  
+          //canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), wb[data[2] - CANFIX_CFG_KEY_W_X]);  
+          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), *k.state_ptr(I_WBX + data[2] - CANFIX_CFG_KEY_W_X));
         } else if ((data[2] >= CANFIX_CFG_KEY_A_X) && (data[2] <= CANFIX_CFG_KEY_A_Z) && (len == 3)) {
-          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), ab[data[2] - CANFIX_CFG_KEY_A_X]);  
+          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), *k.state_ptr(I_ABX + data[2] - CANFIX_CFG_KEY_A_X));  
         } else if ((data[2] >= CANFIX_CFG_KEY_Q0) && (data[2] <= CANFIX_CFG_KEY_Q3) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), q[data[2] - CANFIX_CFG_KEY_Q0]);    
         } else if ((data[2] == CANFIX_CFG_KEY_STATUS) && (len == 3)) {

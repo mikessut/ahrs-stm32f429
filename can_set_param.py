@@ -61,7 +61,7 @@ class IndexableDict(dict):
     def __getitem__(self, k):
         if k.startswith('PROC_NOISE') and (len(k) > len('PROC_NOISE')):
             n = int(k[10:])
-            d = self['PROC_NOISE']
+            d = self['PROC_NOISE'].copy()
             d['byte2'] += n
             return d
         else:
@@ -143,11 +143,14 @@ if __name__ == '__main__':
         elif args.qry:
             y = yaml.safe_load(open(args.config_file, 'r'))
             for k in y.keys():
+                #print(f"Querying {k}")
                 msg = qry_cfg_param(args.dest, PARAMS[k]['byte2'])
                 bus.send(msg)
+                #print("Waiting for response")
                 data = rcv_msg(bus, args.dest + CANFIX_NODE_MSGS_OFFSET, k)
                 val = PARAMS[k]['struct_unpack'](data[3:])[0]
                 print(f"{k}: {val}")
+                #time.sleep(5)
         else:
             print("Config file must include -c or -q argument")
             raise argparse.ArgumentError
