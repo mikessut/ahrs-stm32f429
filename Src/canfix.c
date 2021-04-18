@@ -141,6 +141,14 @@ int rx_canfix_msgs() {
           k.set_heading((*((float*)&data[3])) * M_PI / 180.0);
           uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
           send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
+        } else if ((data[2] >= CANFIX_CFG_KEY_PROCESS_NOISE) && 
+                   (data[2] < (CANFIX_CFG_KEY_PROCESS_NOISE+40) &&
+                   (len == 7))) {
+          // Process noise
+          k.set_Q(data[2] - CANFIX_CFG_KEY_PROCESS_NOISE, data[2] - CANFIX_CFG_KEY_PROCESS_NOISE,
+                  (*((float*)&data[3])));
+          uint8_t reply[3] = {CANFIX_CONTROLCODE_CFG_SET, (uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 0};
+          send_can_msg(CANFIX_NODE_MSGS_OFFSET + CANFIX_NODE_ID, reply, 3);
         }
       } else if ((data[0] == CANFIX_CONTROLCODE_CFG_QRY) && (data[1] == CANFIX_NODE_ID)) {
         // Configure query messages
@@ -158,6 +166,12 @@ int rx_canfix_msgs() {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), status);
         } else if ((data[2] == CANFIX_CFG_KEY_DPRESS) && (len == 3)) {
           canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), dpress_offset);    
+        } else if ((data[2] >= CANFIX_CFG_KEY_PROCESS_NOISE) && 
+                   (data[2] < (CANFIX_CFG_KEY_PROCESS_NOISE+40) &&
+                   (len == 3))) {
+          // Process noise
+          canfix_cfg_qry((uint8_t)(id-CANFIX_NODE_MSGS_OFFSET), 
+                         k.get_Q(data[2] - CANFIX_CFG_KEY_PROCESS_NOISE, data[2] - CANFIX_CFG_KEY_PROCESS_NOISE));
         }
       } 
     } else if (id == CANFIX_SAT) {

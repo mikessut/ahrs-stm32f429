@@ -176,6 +176,11 @@ class Kalman;
 // (perhaps with mag updates off in STATUS byte).
 #define CANFIX_CFG_KEY_HEADING      21  // float
 
+// Config parameters for all of the process errors (along the diagnol)
+// Reserve 40 parameters 
+// 22 + 40 = 62 (next available is 63)
+#define CANFIX_CFG_KEY_PROCESS_NOISE 22
+
 void can_debug(Kalman *k, float *a, float *w, float *m, 
                float *abs_press, float *abs_press_temp,
                float *diff_press, float *diff_press_temp,

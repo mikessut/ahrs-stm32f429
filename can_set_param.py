@@ -50,11 +50,36 @@ PARAMS = {
     'STATUS': {'struct_pack': lambda x: struct.pack('B', int(x, 0)),  'byte2': 19, 'struct_unpack': lambda x: struct.unpack('B', x)},
     'DPRESS': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 20, 'struct_unpack': lambda x: struct.unpack('f', x)},
     'HEADING': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 21,}, # write only
-    
+    'PROC_NOISE': {'struct_pack': lambda x: struct.pack('f', float(x)),  'byte2': 22, 'struct_unpack': lambda x: struct.unpack('f', x)},    
 }
+
+class IndexableDict(dict):
+    """
+    Customize the PARAM dict so some parameters can be indexed (e.g. PROC_NOISE)
+    """
+
+    def __getitem__(self, k):
+        if k.startswith('PROC_NOISE') and (len(k) > len('PROC_NOISE')):
+            n = int(k[10:])
+            d = self['PROC_NOISE']
+            d['byte2'] += n
+            return d
+        else:
+            return super().__getitem__(k)
+
+
+PARAMS = IndexableDict(**PARAMS)
 
 
 def set_cfg_param(dest, key_idx, value, struct_pack_func):
+    """
+    :param dest: Destination node ID
+    :param key_idx: Index to parameter to configure
+    :param value: Value of parameter
+    :struct_pack_func: Function to pack the value
+
+    msg = set_cfg_param(args.dest, PARAMS[args.param]['byte2'], args.val, PARAMS[args.param]['struct_pack'])
+    """
     data = bytearray([9, dest, key_idx]) + \
            bytearray(struct_pack_func(value))
 
