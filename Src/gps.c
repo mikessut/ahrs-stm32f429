@@ -42,7 +42,7 @@ bool read_gps(float* lat, float* lng, uint16_t* head, float* spd) {
     if (memcmp(rxData, txData, 50) == 0)
       return false;
     // Make rxData null terminated
-    rxData[49] = '\0';
+    rxData[50] = '\0';
 
 #ifdef UART_DEBUG_GPS
     for (int i=0; i < 50; i++) {
@@ -72,7 +72,7 @@ bool read_gps(float* lat, float* lng, uint16_t* head, float* spd) {
         HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
         
         // Make rxData null terminated
-        rxData[99] = '\0';
+        rxData[50] = '\0';
 
 #ifdef UART_DEBUG_GPS
         for (int i=0; i < 50; i++) {
@@ -82,7 +82,8 @@ bool read_gps(float* lat, float* lng, uint16_t* head, float* spd) {
 #endif
 
         rmc_end = strstr((char*)rxData, "\r\n");
-        *(rmc_end+1) = '\0';
+        if (rmc_end != NULL)
+          *(rmc_end+1) = '\0';
         // Handle case that it's not in there?
         strcat(rmc_msg, (char*)rxData);
         //*(rmc_msg + (rmc_end+2-pch+1)) = '\0';
